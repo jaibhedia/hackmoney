@@ -1,26 +1,161 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+    /* Semantic Theme Variables */
+    --color-background: var(--background);
+    --color-surface: var(--surface);
+    --color-surface-hover: var(--surface-hover);
+    --color-card: var(--card);
+    --color-border: var(--border);
+
+    --color-text-primary: var(--text-primary);
+    --color-text-secondary: var(--text-secondary);
+    --color-text-muted: var(--text-muted);
+
+    --color-brand: var(--brand);
+    --color-brand-hover: var(--brand-hover);
+    --color-brand-light: var(--brand-light);
+
+    --color-success: var(--success);
+    --color-danger: var(--danger);
+
+    --font-sans: 'Inter', system-ui, sans-serif;
+
+    --animate-ghost-flow: ghost-flow 10s ease-in-out infinite alternate;
+    --animate-slide-up: slide-up 0.5s ease-out forwards;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+    /* LIGHT MODE (Paper White) */
+    --background: #ffffff;
+    --surface: #f4f4f5;
+    /* zinc-100 */
+    --surface-hover: #e4e4e7;
+    /* zinc-200 */
+    --card: #ffffff;
+    --border: #e4e4e7;
+    /* zinc-200 */
+
+    --text-primary: #09090b;
+    /* zinc-950 */
+    --text-secondary: #71717a;
+    /* zinc-500 */
+    --text-muted: #a1a1aa;
+    /* zinc-400 */
+
+    --brand: #3b82f6;
+    /* Blue-500 */
+    --brand-hover: #2563eb;
+    /* Blue-600 */
+    --brand-light: rgba(59, 130, 246, 0.1);
+
+    --success: #10b981;
+    --danger: #ef4444;
+}
+
+.dark {
+    /* DARK MODE (Deep Space) */
+    --background: #050505;
+    --surface: #0a0a0a;
+    --surface-hover: #121212;
+    --card: #171717;
+    --border: #262626;
+    /* neutral-800 */
+
+    --text-primary: #ffffff;
+    --text-secondary: #a3a3a3;
+    /* neutral-400 */
+    --text-muted: #52525b;
+    /* zinc-600 */
+
+    --brand: #3b82f6;
+    /* Blue-500 */
+    --brand-hover: #60a5fa;
+    /* Blue-400 */
+    --brand-light: rgba(59, 130, 246, 0.15);
+
+    --success: #10b981;
+    --danger: #ef4444;
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+    min-height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+    font-family: var(--font-sans);
+    background: var(--background);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Hide scrollbar */
+::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+}
+
+body {
+    scrollbar-width: none;
+}
+
+.safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+*:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+}
+
+/* Aave-style Ghost Animation */
+@keyframes ghost-flow {
+    0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 0.3;
+    }
+
+    50% {
+        transform: translate(20px, -20px) scale(1.1);
+        opacity: 0.5;
+    }
+
+    100% {
+        transform: translate(-10px, 10px) scale(0.9);
+        opacity: 0.3;
+    }
+}
+
+.ghost-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    z-index: 0;
+    pointer-events: none;
+}
+
+.text-gradient {
+    background: linear-gradient(to right, var(--brand), #ec4899);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.footer-watermark {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.20) 0%, rgba(255, 255, 255, 0) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-weight: 900;
+    white-space: nowrap;
+    user-select: none;
+    pointer-events: none;
 }
