@@ -1,117 +1,243 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ArrowUpRight, ArrowDownLeft, Scan, Users, Gift, Activity } from "lucide-react"
+import { Plus, ArrowDownLeft, Send, History, Wallet, X, Loader2 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { WalletConnect } from "@/components/app/wallet-connect"
+import { BottomNav } from "@/components/app/bottom-nav"
+import { useWallet } from "@/hooks/useWallet"
 
-export default function Dashboard() {
-    return (
-        <div className="pb-24 pt-6 px-4 max-w-md mx-auto min-h-screen bg-background text-text-primary transition-colors duration-300">
+export default function DashboardPage() {
+    const { isConnected, address, balance, shortAddress, isLoading, deposit } = useWallet()
+    const [mounted, setMounted] = useState(false)
+    const [showDepositModal, setShowDepositModal] = useState(false)
+    const [depositAmount, setDepositAmount] = useState("")
+    const [isDepositing, setIsDepositing] = useState(false)
 
-            {/* Header / Identity */}
-            <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-brand flex items-center justify-center">
-                        <span className="text-white font-bold font-mono text-sm">uW</span>
-                    </div>
-                    <div>
-                        <span className="font-bold text-text-primary tracking-tight">TERMINAL</span>
-                        <span className="text-[10px] text-brand font-mono ml-2">v2.0.4</span>
-                    </div>
+    useEffect(() => {
+        setMounted(true)
+    }, [])
+
+    const handleDeposit = async () => {
+        const amount = parseFloat(depositAmount)
+        if (isNaN(amount) || amount <= 0) return
+
+        setIsDepositing(true)
+        const success = await deposit(amount)
+        setIsDepositing(false)
+
+        if (success) {
+            setShowDepositModal(false)
+            setDepositAmount("")
+        }
+    }
+
+    if (!mounted) {
+        return (
+            <div className="pb-24 pt-6 px-4 max-w-md mx-auto min-h-screen bg-background">
+                <div className="animate-pulse space-y-4">
+                    <div className="h-8 bg-surface rounded w-32"></div>
+                    <div className="h-40 bg-surface rounded"></div>
                 </div>
-                <div className="flex items-center gap-4">
+            </div>
+        )
+    }
+
+    if (isLoading) {
+        return (
+            <div className="pb-24 pt-6 px-4 max-w-md mx-auto min-h-screen bg-background flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-brand" />
+            </div>
+        )
+    }
+
+    if (!isConnected) {
+        return (
+            <div className="pb-24 pt-6 px-4 max-w-md mx-auto min-h-screen bg-background">
+                <div className="flex items-center justify-between mb-8">
+                    <h1 className="text-xl font-bold text-text-primary">uWu</h1>
                     <ThemeToggle />
-                    <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
-                        <span className="text-xs text-success font-mono uppercase">Online</span>
+                </div>
+
+                <div className="bg-surface border border-border p-6 text-center mb-6">
+                    <Wallet className="w-16 h-16 text-brand mx-auto mb-4" />
+                    <h2 className="text-xl font-bold text-text-primary mb-2">Welcome to uWu</h2>
+                    <p className="text-sm text-text-secondary mb-6">
+                        Pay with USDC at any UPI QR. Create your wallet to get started.
+                    </p>
+                    <WalletConnect />
+                </div>
+
+                <div className="space-y-3">
+                    <div className="bg-surface border border-border p-4">
+                        <h3 className="font-bold text-text-primary mb-2">How it works</h3>
+                        <ol className="text-sm text-text-secondary space-y-2 list-decimal list-inside">
+                            <li>Create wallet & deposit USDC</li>
+                            <li>Scan any UPI QR to create order</li>
+                            <li>LP pays your QR, you get fiat</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    return (
+        <div className="pb-24 pt-6 px-4 max-w-md mx-auto min-h-screen">
+            {/* Header / System Status */}
+            <div className="flex items-center justify-between mb-8 border-b border-border pb-4 border-dashed">
+                <div>
+                    <h1 className="text-xl font-bold uppercase tracking-wider text-brand">uWu_TERMINAL</h1>
+                    <p className="text-xs text-text-secondary uppercase">v2.0.4 [TESTNET]</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
+                    <span className="text-xs font-bold text-success">ONLINE</span>
+                </div>
+            </div>
+
+            {/* Account Info Block */}
+            <div className="mb-8">
+                <div className="flex items-center justify-between text-xs text-text-secondary mb-1 uppercase tracking-widest">
+                    <span>Accountlink</span>
+                    <span>{shortAddress}</span>
+                </div>
+                <div className="border border-border bg-surface/50 p-6 relative group overflow-hidden">
+                    <div className="absolute top-0 right-0 p-1 opacity-50">
+                        <Wallet className="w-12 h-12 text-border -rotate-12 group-hover:text-brand/20 transition-colors" />
+                    </div>
+
+                    <p className="text-xs text-brand mb-2 uppercase flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-brand"></span>
+                        Available_Balance
+                    </p>
+                    <div className="flex items-baseline gap-2">
+                        <span className="text-4xl font-bold tracking-tight text-white">${balance.toFixed(2)}</span>
+                        <span className="text-sm text-text-muted">USDC</span>
+                    </div>
+
+                    <div className="h-px w-full bg-border my-4 border-dashed" />
+
+                    <button
+                        onClick={() => setShowDepositModal(true)}
+                        className="w-full py-2 border border-dashed border-brand/50 text-brand text-xs font-bold uppercase hover:bg-brand/10 transition-colors flex items-center justify-center gap-2"
+                    >
+                        [ LOAD_FUNDS ]
+                    </button>
+                </div>
+            </div>
+
+            {/* Command Palette / Actions */}
+            <div className="mb-8">
+                <h3 className="text-xs text-text-secondary uppercase mb-3 px-1 border-l-2 border-brand pl-2">
+                    Execute_Command
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                    <Link
+                        href="/scan"
+                        className="flex flex-col gap-2 p-4 border border-border bg-card hover:border-brand hover:bg-surface-hover transition-all group"
+                    >
+                        <div className="flex justify-between items-start">
+                            <Send className="w-5 h-5 text-text-secondary group-hover:text-brand transition-colors" />
+                            <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">CMD_01</span>
+                        </div>
+                        <div>
+                            <span className="block text-sm font-bold group-hover:text-brand">INIT_PAYMENT</span>
+                            <span className="text-[10px] text-text-secondary lowercase">{">>"} scan_qr_code</span>
+                        </div>
+                    </Link>
+
+                    <Link
+                        href="/solver"
+                        className="flex flex-col gap-2 p-4 border border-border bg-card hover:border-warning hover:bg-surface-hover transition-all group"
+                    >
+                        <div className="flex justify-between items-start">
+                            <ArrowDownLeft className="w-5 h-5 text-text-secondary group-hover:text-warning transition-colors" />
+                            <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">CMD_02</span>
+                        </div>
+                        <div>
+                            <span className="block text-sm font-bold group-hover:text-warning">PROVIDE_LIQ</span>
+                            <span className="text-[10px] text-text-secondary lowercase">{">>"} visualize_order_book</span>
+                        </div>
+                    </Link>
+                </div>
+            </div>
+
+            {/* Recent Activity Log */}
+            <div>
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs text-text-secondary uppercase px-1 border-l-2 border-brand pl-2">System_Logs</h3>
+                    <Link href="/orders" className="text-[10px] text-brand hover:underline uppercase">[View_All]</Link>
+                </div>
+
+                <div className="border border-border bg-surface/50 text-xs font-mono">
+                    <div className="border-b border-border bg-surface p-2 flex justify-between text-text-muted">
+                        <span>TIMESTAMP</span>
+                        <span>EVENT</span>
+                        <span>STATUS</span>
+                    </div>
+                    {/* Empty State */}
+                    <div className="p-8 text-center text-text-secondary">
+                        <p className="mb-2">{">"} No recent transactions found in buffer.</p>
+                        <p className="opacity-50 text-[10px]">Prepare to execute first order...</p>
                     </div>
                 </div>
             </div>
 
-            {/* Main Grid Layout */}
-            <div className="grid grid-cols-2 gap-3">
-
-                {/* Net Worth - Full Width */}
-                <div className="col-span-2 bg-surface border border-border p-5">
-                    <p className="text-xs text-text-secondary font-mono mb-2 uppercase tracking-wider">Total Net Worth</p>
-                    <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-bold text-text-primary font-mono tracking-tighter">$2,480.00</span>
-                        <span className="text-sm text-brand font-mono">+12.4%</span>
-                    </div>
-                </div>
-
-                {/* Quick Actions - Grid of 3 */}
-                <Link href="/buy" className="bg-surface border border-border p-4 hover:border-brand transition-colors group">
-                    <div className="mb-3 w-8 h-8 flex items-center justify-center bg-brand-light group-hover:bg-brand transition-colors">
-                        <ArrowDownLeft className="w-4 h-4 text-brand group-hover:text-white" />
-                    </div>
-                    <p className="text-sm font-bold text-text-primary uppercase">Buy</p>
-                </Link>
-
-                <Link href="/sell" className="bg-surface border border-border p-4 hover:border-brand transition-colors group">
-                    <div className="mb-3 w-8 h-8 flex items-center justify-center bg-brand-light group-hover:bg-brand transition-colors">
-                        <ArrowUpRight className="w-4 h-4 text-brand group-hover:text-white" />
-                    </div>
-                    <p className="text-sm font-bold text-text-primary uppercase">Sell</p>
-                </Link>
-
-                <div className="bg-surface border border-border p-4">
-                    <p className="text-xs text-text-secondary font-mono mb-2 uppercase">Limit</p>
-                    <p className="text-lg font-bold text-text-primary font-mono">$150</p>
-                    <div className="w-full h-1 bg-border mt-2">
-                        <div className="h-full w-[20%] bg-brand"></div>
-                    </div>
-                </div>
-
-                <Link href="/scan" className="bg-surface border border-border p-4 hover:border-brand transition-colors group">
-                    <div className="mb-3 w-8 h-8 flex items-center justify-center bg-brand-light group-hover:bg-brand transition-colors">
-                        <Scan className="w-4 h-4 text-brand group-hover:text-white" />
-                    </div>
-                    <p className="text-sm font-bold text-text-primary uppercase">Scan</p>
-                </Link>
-
-                {/* Rewards / Referral - Full Width Banner */}
-                <div className="col-span-2 bg-surface border border-border p-0 flex">
-                    <div className="p-4 flex-1 border-r border-border">
-                        <div className="flex items-center gap-2 mb-2">
-                            <Gift className="w-4 h-4 text-brand" />
-                            <span className="text-xs text-text-primary font-bold uppercase">Rewards</span>
+            {/* Deposit Modal (Terminal Style) */}
+            {showDepositModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-black border-2 border-brand w-full max-w-sm shadow-[0_0_50px_rgba(34,197,94,0.2)]">
+                        <div className="bg-brand text-black px-4 py-2 font-bold flex justify-between items-center">
+                            <span>DEPOSIT_USDC.exe</span>
+                            <button onClick={() => setShowDepositModal(false)}>
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
-                        <p className="text-2xl font-bold text-text-primary font-mono">0<span className="text-sm text-text-secondary ml-1">USDC</span></p>
-                    </div>
-                    <div className="p-4 flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                            <Users className="w-4 h-4 text-brand" />
-                            <span className="text-xs text-text-primary font-bold uppercase">Referrals</span>
-                        </div>
-                        <p className="text-2xl font-bold text-text-primary font-mono">0<span className="text-sm text-text-secondary ml-1">Friends</span></p>
-                    </div>
-                </div>
+                        <div className="p-6">
+                            <p className="text-brand text-sm mb-4 font-mono">
+                                {">"} INITIATING_TRANSFER_SEQUENCE...<br />
+                                {">"} SELECT_AMOUNT:
+                            </p>
 
-                {/* Activity Feed */}
-                <div className="col-span-2 mt-4">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider flex items-center gap-2">
-                            <Activity className="w-4 h-4 text-brand" />
-                            Live Feed
-                        </h3>
-                        <span className="text-xs text-brand font-mono animate-pulse">SYNCED</span>
-                    </div>
-
-                    <div className="space-y-2">
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="bg-surface border border-border p-3 flex items-center justify-between hover:border-text-secondary transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <div className="text-xs font-mono text-text-secondary">14:2{i}</div>
-                                    <div className="text-sm text-text-primary font-medium">Bought USDC</div>
+                            <div className="mb-6">
+                                <div className="relative">
+                                    <span className="absolute left-3 top-3 text-brand">$</span>
+                                    <input
+                                        type="number"
+                                        value={depositAmount}
+                                        onChange={(e) => setDepositAmount(e.target.value)}
+                                        className="w-full bg-black border border-brand/50 p-3 pl-8 text-white font-mono focus:border-brand focus:ring-1 focus:ring-brand outline-none"
+                                        placeholder="0.00"
+                                        autoFocus
+                                    />
                                 </div>
-                                <div className="text-sm font-mono text-brand">+100.00</div>
                             </div>
-                        ))}
+
+                            <div className="grid grid-cols-3 gap-2 mb-6">
+                                {[50, 100, 500].map(amt => (
+                                    <button
+                                        key={amt}
+                                        onClick={() => setDepositAmount(amt.toString())}
+                                        className="py-2 border border-brand/30 text-brand text-xs hover:bg-brand hover:text-black transition-colors"
+                                    >
+                                        ${amt}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <button
+                                onClick={handleDeposit}
+                                disabled={!depositAmount || isDepositing}
+                                className="w-full py-3 bg-brand text-black font-bold uppercase hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isDepositing ? "PROCESSING..." : "CONFIRM_TRANSACTION"}
+                            </button>
+                        </div>
                     </div>
                 </div>
-
-            </div>
+            )}
         </div>
     )
 }

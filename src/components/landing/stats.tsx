@@ -1,107 +1,68 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
-import { motion, useInView } from "framer-motion"
-
-interface StatItemProps {
-    value: number
-    suffix: string
-    label: string
-    delay: number
-}
-
-function StatItem({ value, suffix, label, delay }: StatItemProps) {
-    const [count, setCount] = useState(0)
-    const ref = useRef(null)
-    const isInView = useInView(ref, { once: true })
-
-    useEffect(() => {
-        if (!isInView) return
-
-        const duration = 2000
-        const steps = 60
-        const increment = value / steps
-        let current = 0
-
-        const timer = setTimeout(() => {
-            const interval = setInterval(() => {
-                current += increment
-                if (current >= value) {
-                    setCount(value)
-                    clearInterval(interval)
-                } else {
-                    setCount(Math.floor(current))
-                }
-            }, duration / steps)
-
-            return () => clearInterval(interval)
-        }, delay)
-
-        return () => clearTimeout(timer)
-    }, [isInView, value, delay])
-
-    return (
-        <motion.div
-            ref={ref}
-            initial={{ opacity: 0, scale: 0.8 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            transition={{ delay: delay / 1000, duration: 0.5 }}
-            viewport={{ once: true }}
-            className="relative group"
-        >
-            {/* Circular background */}
-            <div className="relative w-40 h-40 mx-auto mb-4">
-                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 group-hover:from-primary/30 group-hover:to-secondary/30 transition-all duration-500" />
-                <div className="absolute inset-2 rounded-full bg-terminal-bg flex items-center justify-center">
-                    <div className="text-center">
-                        <span className="text-3xl font-bold text-white">
-                            {count.toLocaleString()}
-                        </span>
-                        <span className="text-xl text-primary-light">{suffix}</span>
-                    </div>
-                </div>
-                {/* Glow ring */}
-                <div className="absolute inset-0 rounded-full border border-primary/30 group-hover:border-primary/50 transition-all duration-500" />
-            </div>
-            <p className="text-zinc-400 text-sm">{label}</p>
-        </motion.div>
-    )
-}
+import CountUp from "react-countup"
+import { motion, useScroll, useTransform } from "framer-motion"
+import { Activity, Zap } from "lucide-react"
 
 export function Stats() {
-    const stats = [
-        { value: 2.5, suffix: "B+", label: "Total Volume Traded", delay: 0 },
-        { value: 150, suffix: "K+", label: "Active Users", delay: 200 },
-        { value: 99.9, suffix: "%", label: "Uptime", delay: 400 },
-        { value: 50, suffix: "+", label: "Supported Tokens", delay: 600 },
-    ]
+    const { scrollY } = useScroll()
+    const y1 = useTransform(scrollY, [0, 500], [0, 100])
+    const y2 = useTransform(scrollY, [0, 500], [0, -100])
 
     return (
-        <section id="stats" className="py-24 bg-terminal-bg">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="text-center mb-16"
-                >
-                    <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-                        Trusted by{" "}
-                        <span className="bg-gradient-to-r from-primary-light to-secondary bg-clip-text text-transparent">
-                            Thousands
-                        </span>
-                    </h2>
-                    <p className="text-zinc-400 max-w-xl mx-auto">
-                        Join the growing community of traders who trust uWu for their P2P transactions
-                    </p>
-                </motion.div>
+        <div className="relative hidden lg:block h-full min-h-[400px] w-full max-w-[500px]">
+            <motion.div
+                style={{ y: y1 }}
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4, duration: 0.8 }}
+                className="absolute top-10 right-0 w-full"
+            >
+                <div className="bg-[#121212]/50 backdrop-blur-xl border border-white/10 p-8 rounded-[2rem] shadow-2xl skew-y-[-2deg] hover:skew-y-0 transition-all duration-500 group hover:border-[#3b82f6]/30 hover:shadow-[0_0_50px_rgba(59,130,246,0.1)]">
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="p-3 bg-white/5 rounded-2xl">
+                            <Activity className="w-6 h-6 text-[#3b82f6]" />
+                        </div>
+                        <span className="text-xs font-bold tracking-widest text-[#a3a3a3] uppercase">Market Size</span>
+                    </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-                    {stats.map((stat, index) => (
-                        <StatItem key={index} {...stat} />
-                    ))}
+                    <div className="space-y-6">
+                        <div>
+                            <p className="text-sm text-[#a3a3a3] mb-1">Total Market Size</p>
+                            <p className="text-4xl font-black text-white">$<CountUp end={420.69} decimals={2} duration={2} />M</p>
+                        </div>
+
+                        <div className="h-px bg-white/10" />
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <p className="text-xs text-[#a3a3a3] mb-1">Total Borrows</p>
+                                <p className="text-xl font-bold text-white">$<CountUp end={142.5} decimals={1} duration={2} />M</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-[#a3a3a3] mb-1">Total Supply</p>
+                                <p className="text-xl font-bold text-white">$<CountUp end={892.1} decimals={1} duration={2} />M</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </section>
+
+                {/* Floating Element 2 */}
+                <motion.div
+                    style={{ y: y2 }}
+                    animate={{ y: [0, -20, 0] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute -bottom-20 -left-10 bg-[#1e1e1e] p-4 rounded-2xl border border-white/5 shadow-xl flex items-center gap-3 w-56 backdrop-blur-md"
+                >
+                    <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                        <Zap className="w-5 h-5 text-green-500" />
+                    </div>
+                    <div>
+                        <p className="text-xs text-gray-400">Avg. Settlement</p>
+                        <p className="text-lg font-bold text-white">12 seconds</p>
+                    </div>
+                </motion.div>
+            </motion.div>
+        </div>
     )
 }

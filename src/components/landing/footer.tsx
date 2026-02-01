@@ -1,78 +1,77 @@
 "use client"
 
 import Link from "next/link"
-import { motion } from "framer-motion"
-import { Twitter, Github } from "lucide-react"
-
-export function CTA() {
-    return (
-        <section className="py-24 bg-gray-900">
-            <div className="max-w-3xl mx-auto px-6 text-center">
-                <motion.h2
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="text-3xl md:text-4xl font-bold text-white mb-6"
-                >
-                    Ready to start?
-                </motion.h2>
-                <motion.p
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    viewport={{ once: true }}
-                    className="text-gray-400 mb-10"
-                >
-                    Join thousands trading P2P with uWu.
-                </motion.p>
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    viewport={{ once: true }}
-                >
-                    <Link
-                        href="/dashboard"
-                        className="inline-flex px-8 py-3.5 bg-white text-gray-900 font-medium rounded-full hover:bg-gray-100 transition-colors"
-                    >
-                        Open App
-                    </Link>
-                </motion.div>
-            </div>
-        </section>
-    )
-}
+import { Facebook, Github, Instagram, Linkedin, Twitter } from "lucide-react"
 
 export function Footer() {
     return (
-        <footer className="py-12 bg-gray-50 border-t border-gray-100">
-            <div className="max-w-6xl mx-auto px-6">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xl font-bold text-gray-900">uWu</span>
-                        <span className="text-gray-400 text-sm">© 2025</span>
-                    </div>
+        <footer className="relative bg-black pt-32 pb-12 overflow-hidden border-t border-white/5">
+            {/* Watermark */}
+            <div className="absolute bottom-0 left-0 w-full flex justify-center select-none pointer-events-none opacity-20 overflow-hidden">
+                <h1 className="text-[40vw] font-black leading-none tracking-tighter text-white translate-y-[30%]">
+                    uWu
+                </h1>
+            </div>
 
-                    <div className="flex items-center gap-8">
-                        <Link href="#" className="text-gray-500 hover:text-gray-900 text-sm transition-colors">
-                            Terms
-                        </Link>
-                        <Link href="#" className="text-gray-500 hover:text-gray-900 text-sm transition-colors">
-                            Privacy
-                        </Link>
-                        <Link href="#" className="text-gray-500 hover:text-gray-900 text-sm transition-colors">
-                            Docs
-                        </Link>
+            <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16 mb-20">
+                <div className="lg:col-span-1">
+                    <div className="flex items-center gap-2 mb-6">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#A855F7] to-[#EC4899] flex items-center justify-center">
+                            <span className="text-white font-bold text-sm">uw</span>
+                        </div>
+                        <span className="text-xl font-bold text-white">uWu</span>
                     </div>
+                    <p className="text-gray-500 text-sm leading-relaxed max-w-xs">
+                        A decentralized liquidity protocol for the next generation of on-chain finance.
+                    </p>
 
-                    <div className="flex items-center gap-4">
-                        <a href="#" className="text-gray-400 hover:text-gray-900 transition-colors">
-                            <Twitter className="w-5 h-5" />
-                        </a>
-                        <a href="#" className="text-gray-400 hover:text-gray-900 transition-colors">
-                            <Github className="w-5 h-5" />
-                        </a>
+                    <div className="flex gap-4 mt-8">
+                        {[Facebook, Github, Instagram, Linkedin, Twitter].map((Icon, i) => (
+                            <a key={i} href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 hover:text-white text-gray-400 transition-all">
+                                <Icon className="w-5 h-5" />
+                            </a>
+                        ))}
                     </div>
+                </div>
+
+                <div>
+                    <h4 className="font-bold text-white mb-6">Resources</h4>
+                    <ul className="space-y-4 text-gray-400 text-sm">
+                        <li><Link href="#" className="hover:text-white">Blog</Link></li>
+                        <li><Link href="#" className="hover:text-white">Brand</Link></li>
+                        <li><Link href="#" className="hover:text-white">FAQ</Link></li>
+                        <li><Link href="#" className="hover:text-white">Case Studies</Link></li>
+                        <li><Link href="#" className="hover:text-white">Help & Support</Link></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 className="font-bold text-white mb-6">Developers</h4>
+                    <ul className="space-y-4 text-gray-400 text-sm">
+                        <li><Link href="#" className="hover:text-white">Build</Link></li>
+                        <li><Link href="#" className="hover:text-white">Documentation</Link></li>
+                        <li><Link href="#" className="hover:text-white">Technical Paper</Link></li>
+                        <li><Link href="#" className="hover:text-white">Case Security</Link></li>
+                        <li><Link href="#" className="hover:text-white">Bug Bounty</Link></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 className="font-bold text-white mb-6">Company</h4>
+                    <ul className="space-y-4 text-gray-400 text-sm">
+                        <li><Link href="#" className="hover:text-white">Privacy Policy</Link></li>
+                        <li><Link href="#" className="hover:text-white">Terms of Service</Link></li>
+                        <li><Link href="#" className="hover:text-white">Contact</Link></li>
+                        <li><Link href="#" className="hover:text-white">Manage Analytics</Link></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center text-xs text-gray-600">
+                <p>© 2026 uWu Protocol. All rights reserved.</p>
+                <div className="flex gap-6 mt-4 md:mt-0">
+                    <a href="#" className="hover:text-gray-400">English</a>
+                    <a href="#" className="hover:text-gray-400">Sitemap</a>
                 </div>
             </div>
         </footer>

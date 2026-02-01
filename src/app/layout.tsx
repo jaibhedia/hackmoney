@@ -1,4 +1,6 @@
 import { ThemeProvider } from "@/components/theme-provider"
+import { WalletProvider } from "@/context/wallet-context"
+import { ThirdwebProvider } from "thirdweb/react"
 import "./globals.css"
 import { Inter } from "next/font/google";
 import type { Metadata, Viewport } from "next";
@@ -29,16 +31,21 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-          <Analytics />
-        </ThemeProvider>
+        <ThirdwebProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <WalletProvider>
+              {children}
+            </WalletProvider>
+            <Analytics />
+          </ThemeProvider>
+        </ThirdwebProvider>
       </body>
     </html>
   )
 }
+
