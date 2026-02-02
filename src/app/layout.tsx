@@ -4,7 +4,7 @@ import { ThirdwebProvider } from "thirdweb/react"
 import "./globals.css"
 import { Inter } from "next/font/google";
 import type { Metadata, Viewport } from "next";
-import { Analytics } from "@vercel/analytics/react"
+import { Analytics } from "@vercel/analytics/next"
 
 const inter = Inter({ subsets: ["latin"] });
 
