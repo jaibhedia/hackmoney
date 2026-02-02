@@ -1,15 +1,18 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronLeft, AlertCircle, CheckCircle, Clock, Loader2, Wifi, Send, DollarSign } from "lucide-react"
+import { ChevronLeft, AlertCircle, CheckCircle, Loader2, Send, Shield } from "lucide-react"
 import Link from "next/link"
 import { Numpad } from "@/components/app/numpad"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { WalletConnect } from "@/components/app/wallet-connect"
 import { useWallet } from "@/hooks/useWallet"
 import { useUserOrders, Order } from "@/hooks/useOrders"
+import { useFraudProfile } from "@/hooks/useFraudProfile"
 import { usdcToFiat, formatCurrency } from "@/lib/currency-converter"
 import { useRouter } from "next/navigation"
+import { RiskIndicator, StakeRequirement, OrderBlockedWarning } from "@/components/app/risk-indicator"
+import { PaymentProofUpload } from "@/components/app/payment-proof-upload"
+import { PLATFORM_CONFIG, calculateRequiredStake } from "@/lib/platform-config"
 
 /**
  * Sell Page - Simplified Flow (Terminal Style)
@@ -25,14 +28,21 @@ import { useRouter } from "next/navigation"
 export default function SellPage() {
     const router = useRouter()
     const [amount, setAmount] = useState("0")
-    const [paymentMethod, setPaymentMethod] = useState("UPI")
     const [paymentDetails, setPaymentDetails] = useState("")
-    const [step, setStep] = useState<"amount" | "payment" | "waiting" | "confirm">("amount")
+    const [step, setStep] = useState<"amount" | "payment" | "waiting" | "verify" | "confirm">("amount")
     const [currentOrder, setCurrentOrder] = useState<Order | null>(null)
     const [mounted, setMounted] = useState(false)
+    const [riskChecked, setRiskChecked] = useState(false)
 
     const { address, isConnected, balanceFormatted } = useWallet()
     const { orders, createSellOrder, confirmPaymentReceived, cancelOrder, isLoading } = useUserOrders(address || undefined)
+    const {
+        analyzeOrderRisk,
+        riskAssessment,
+        riskLevel,
+        isLoading: isAnalyzing,
+        getRequiredStake
+    } = useFraudProfile(address ?? undefined)
 
     useEffect(() => {
         setMounted(true)
@@ -41,8 +51,23 @@ export default function SellPage() {
     const fiatAmount = amount !== "0" ? usdcToFiat(parseFloat(amount), "INR") : 0
     const hasEnoughBalance = parseFloat(amount) <= parseFloat(balanceFormatted)
 
-    const handleContinue = () => {
+    const handleContinue = async () => {
         if (amount === "0" || parseFloat(amount) < 10 || !hasEnoughBalance) return
+
+        // Run fraud analysis before proceeding
+        const assessment = await analyzeOrderRisk({
+            amountUsdc: parseFloat(amount),
+            paymentMethod: 'upi',
+            fiatCurrency: 'INR',
+        })
+
+        setRiskChecked(true)
+
+        // Block if risk is too high
+        if (assessment?.blocked) {
+            return // Show blocked warning in UI
+        }
+
         setStep("payment")
     }
 
@@ -53,7 +78,7 @@ export default function SellPage() {
             amountUsdc: parseFloat(amount),
             amountFiat: fiatAmount,
             fiatCurrency: "INR",
-            paymentMethod,
+            paymentMethod: "UPI",
             paymentDetails,
             userAddress: address,
         })
@@ -62,6 +87,11 @@ export default function SellPage() {
             setCurrentOrder(order)
             setStep("waiting")
         }
+    }
+
+    // Called when payment proof is verified successfully
+    const handlePaymentVerified = () => {
+        setStep("confirm")
     }
 
     const handleConfirmPayment = async () => {
@@ -82,10 +112,14 @@ export default function SellPage() {
 
     // Polling for order updates when waiting
     useEffect(() => {
-        if (step === "waiting" && currentOrder) {
+        if ((step === "waiting" || step === "verify") && currentOrder) {
             const updatedOrder = orders.find(o => o.id === currentOrder.id)
             if (updatedOrder && updatedOrder.status !== currentOrder.status) {
                 setCurrentOrder(updatedOrder)
+                // If LP has sent payment, move to verification step
+                if (updatedOrder.status === "payment_sent") {
+                    setStep("verify")
+                }
             }
         }
     }, [orders, currentOrder, step])
@@ -216,47 +250,30 @@ export default function SellPage() {
                         </div>
                     </div>
 
-                    {/* Payment Method */}
+                    {/* Payment Method - UPI Only */}
                     <div className="mb-6">
                         <label className="text-[10px] text-brand uppercase block mb-2 font-bold">
-                            SELECT_PAYMENT_METHOD
+                            PAYMENT_METHOD
                         </label>
-                        <div className="grid grid-cols-3 gap-2">
-                            {["UPI", "Bank Transfer", "PayTM"].map(method => (
-                                <button
-                                    key={method}
-                                    onClick={() => setPaymentMethod(method)}
-                                    className={`py-3 px-2 text-[10px] font-bold uppercase border transition-colors ${paymentMethod === method
-                                        ? "bg-brand text-black border-brand"
-                                        : "bg-black border-border text-text-secondary hover:border-brand hover:text-white"
-                                        }`}
-                                >
-                                    {method}
-                                </button>
-                            ))}
+                        <div className="py-3 px-4 bg-brand/10 border border-brand text-brand font-bold uppercase text-xs">
+                            UPI
                         </div>
                     </div>
 
                     {/* Payment Details Input */}
                     <div className="mb-6">
                         <label className="text-[10px] text-brand uppercase block mb-2 font-bold">
-                            {">"} ENTER_DESTINATION_DETAILS
+                            {">"} ENTER_UPI_ID
                         </label>
                         <input
                             type="text"
                             value={paymentDetails}
                             onChange={(e) => setPaymentDetails(e.target.value)}
-                            placeholder={
-                                paymentMethod === "UPI"
-                                    ? "user@upi"
-                                    : paymentMethod === "Bank Transfer"
-                                        ? "Account number, IFSC"
-                                        : "9876543210"
-                            }
+                            placeholder="yourname@upi"
                             className="w-full bg-black border border-border p-4 text-white font-mono focus:border-brand outline-none placeholder:text-gray-800 text-sm"
                         />
                         <p className="text-[10px] text-text-secondary mt-1 uppercase opacity-70">
-                            {paymentMethod === "UPI" ? "Ensure VPA is valid" : "Double check account info"}
+                            Ensure VPA is valid and receiving payments
                         </p>
                     </div>
 

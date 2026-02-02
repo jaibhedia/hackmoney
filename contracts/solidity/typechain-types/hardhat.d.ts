@@ -34,13 +34,25 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IERC165__factory>;
     getContractFactory(
+      name: "Pausable",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.Pausable__factory>;
+    getContractFactory(
       name: "ReentrancyGuard",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.ReentrancyGuard__factory>;
     getContractFactory(
+      name: "DisputeDAO",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.DisputeDAO__factory>;
+    getContractFactory(
       name: "P2PEscrow",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.P2PEscrow__factory>;
+    getContractFactory(
+      name: "P2PEscrowV2",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.P2PEscrowV2__factory>;
     getContractFactory(
       name: "TrustScore",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -72,15 +84,30 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.IERC165>;
     getContractAt(
+      name: "Pausable",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.Pausable>;
+    getContractAt(
       name: "ReentrancyGuard",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
     ): Promise<Contracts.ReentrancyGuard>;
     getContractAt(
+      name: "DisputeDAO",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.DisputeDAO>;
+    getContractAt(
       name: "P2PEscrow",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
     ): Promise<Contracts.P2PEscrow>;
+    getContractAt(
+      name: "P2PEscrowV2",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.P2PEscrowV2>;
     getContractAt(
       name: "TrustScore",
       address: string | ethers.Addressable,
@@ -108,13 +135,25 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IERC165>;
     deployContract(
+      name: "Pausable",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.Pausable>;
+    deployContract(
       name: "ReentrancyGuard",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.ReentrancyGuard>;
     deployContract(
+      name: "DisputeDAO",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.DisputeDAO>;
+    deployContract(
       name: "P2PEscrow",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.P2PEscrow>;
+    deployContract(
+      name: "P2PEscrowV2",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.P2PEscrowV2>;
     deployContract(
       name: "TrustScore",
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -146,15 +185,30 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IERC165>;
     deployContract(
+      name: "Pausable",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.Pausable>;
+    deployContract(
       name: "ReentrancyGuard",
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.ReentrancyGuard>;
     deployContract(
+      name: "DisputeDAO",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.DisputeDAO>;
+    deployContract(
       name: "P2PEscrow",
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.P2PEscrow>;
+    deployContract(
+      name: "P2PEscrowV2",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.P2PEscrowV2>;
     deployContract(
       name: "TrustScore",
       args: any[],

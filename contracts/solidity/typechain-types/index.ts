@@ -16,9 +16,15 @@ export type { SafeERC20 } from "./@openzeppelin/contracts/token/ERC20/utils/Safe
 export { SafeERC20__factory } from "./factories/@openzeppelin/contracts/token/ERC20/utils/SafeERC20__factory";
 export type { IERC165 } from "./@openzeppelin/contracts/utils/introspection/IERC165";
 export { IERC165__factory } from "./factories/@openzeppelin/contracts/utils/introspection/IERC165__factory";
+export type { Pausable } from "./@openzeppelin/contracts/utils/Pausable";
+export { Pausable__factory } from "./factories/@openzeppelin/contracts/utils/Pausable__factory";
 export type { ReentrancyGuard } from "./@openzeppelin/contracts/utils/ReentrancyGuard";
 export { ReentrancyGuard__factory } from "./factories/@openzeppelin/contracts/utils/ReentrancyGuard__factory";
+export type { DisputeDAO } from "./contracts/DisputeDAO";
+export { DisputeDAO__factory } from "./factories/contracts/DisputeDAO__factory";
 export type { P2PEscrow } from "./contracts/P2PEscrow";
 export { P2PEscrow__factory } from "./factories/contracts/P2PEscrow__factory";
+export type { P2PEscrowV2 } from "./contracts/P2PEscrowV2";
+export { P2PEscrowV2__factory } from "./factories/contracts/P2PEscrowV2__factory";
 export type { TrustScore } from "./contracts/TrustScore";
 export { TrustScore__factory } from "./factories/contracts/TrustScore__factory";
