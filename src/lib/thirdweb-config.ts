@@ -4,33 +4,24 @@ import { createThirdwebClient, defineChain } from "thirdweb"
 
 /**
  * Thirdweb Client Configuration
+ * 
+ * Production-ready wallet integration.
+ * No KYC required - permissionless access.
+ * 
  * Get your client ID from https://thirdweb.com/dashboard
  */
 export const thirdwebClient = createThirdwebClient({
-    clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "demo-client-id",
+    clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!,
 })
 
 /**
- * Arc Testnet Chain Definition for Thirdweb
+ * Arc Chain Definition for Thirdweb
  * EVM-compatible Layer-1 by Circle, uses USDC for gas
  */
-export const arcTestnetChain = defineChain({
-    id: 5042002,
-    name: "Arc Testnet",
-    nativeCurrency: {
-        decimals: 6,
-        name: "USDC",
-        symbol: "USDC",
-    },
-    rpc: "https://rpc.arc.network",
-    blockExplorers: [
-        {
-            name: "Arc Explorer",
-            url: "https://explorer.arc.network",
-        },
-    ],
-    testnet: true,
-})
+export const arcChain = defineChain(5042002)
+
+// Alias for backwards compatibility
+export const arcTestnetChain = arcChain
 
 /**
  * Spending Cap Configuration

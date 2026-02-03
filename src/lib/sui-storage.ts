@@ -4,16 +4,18 @@ import { Ed25519Keypair } from "@mysten/sui.js/keypairs/ed25519"
 import { suiConfig } from "@/lib/web3-config"
 
 /**
- * Order Storage for Sui Blockchain
+ * Order Storage for Sui Blockchain (Mainnet)
  * 
- * This module provides persistent storage for orders on Sui testnet.
- * Uses @mysten/sui.js for actual blockchain interactions.
+ * Fully decentralized storage for orders on Sui.
+ * Uses @mysten/sui.js for blockchain interactions.
+ * 
+ * No centralized database - all data on-chain.
  */
 
-// Sui client instance
+// Sui client instance (Mainnet)
 const suiClient = new SuiClient({ url: getFullnodeUrl(suiConfig.network) })
 
-// Package ID for deployed Move contract (to be updated after deployment)
+// Package ID for deployed Move contract
 const ORDERS_PACKAGE_ID = process.env.NEXT_PUBLIC_SUI_PACKAGE_ID || "0x0"
 
 export interface StoredOrder {

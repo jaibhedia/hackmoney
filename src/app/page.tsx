@@ -2,6 +2,9 @@
 
 import { Navbar } from "@/components/landing/navbar"
 import { Hero } from "@/components/landing/hero"
+import { ScanPaySection } from "@/components/landing/scan-pay-section"
+import { LPStakeSection } from "@/components/landing/lp-stake-section"
+import { DAOSection } from "@/components/landing/dao-section"
 import { FAQ } from "@/components/landing/faq"
 import { Footer } from "@/components/landing/footer"
 import { motion } from "framer-motion"
@@ -13,6 +16,9 @@ export default function LandingPage() {
 
             <main>
                 <Hero />
+
+                {/* Scan & Pay Section */}
+                <ScanPaySection />
 
                 {/* Pay with USDC at any QR Section */}
                 <section className="py-32 relative overflow-hidden">
@@ -41,6 +47,12 @@ export default function LandingPage() {
                         </motion.p>
                     </div>
                 </section>
+
+                {/* LP Stake Section */}
+                <LPStakeSection />
+
+                {/* DAO Section */}
+                <DAOSection />
 
                 {/* Big Logo Section */}
                 <section className="py-20 flex justify-center items-center opacity-100">

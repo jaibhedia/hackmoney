@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import Link from "next/link"
-import { Check, Download } from "lucide-react"
+import { Check, QrCode } from "lucide-react"
 
 export function Hero() {
     return (
@@ -24,18 +24,18 @@ export function Hero() {
                     </div>
 
                     <h1 className="text-6xl md:text-7xl font-bold text-white tracking-tight mb-6">
-                        Designed for
+                        Scan. Pay. <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Done.</span>
                     </h1>
 
                     <p className="text-lg text-gray-400 max-w-md mb-10 leading-relaxed">
-                        Pay anywhere that accepts QR codes using your crypto balance. We handle the bridge, swap, and settlement in a single atomic transaction.
+                        Pay anywhere that accepts QR codes using USDC. Deposit to your Arc wallet, scan any UPI QR, and our LPs handle the fiat settlement instantly.
                     </p>
 
                     <div className="space-y-4 mb-10">
                         {[
-                            "Zero bridge or conversion fees",
-                            "Non-custodial - your keys, your coins",
-                            "Earn 4.5% APY while you spend"
+                            "Deposit & Withdraw USDC on Arc",
+                            "Scan any UPI QR to pay",
+                            "Instant LP matching & settlement"
                         ].map((item, i) => (
                             <div key={i} className="flex items-center gap-3">
                                 <div className="w-5 h-5 rounded-full bg-blue-600/20 flex items-center justify-center">
@@ -47,11 +47,11 @@ export function Hero() {
                     </div>
 
                     <Link
-                        href="/dashboard"
+                        href="/onboarding"
                         className="inline-flex items-center gap-3 px-8 py-4 bg-white text-black font-bold rounded-lg hover:bg-gray-100 transition-all group"
                     >
-                        <Download className="w-5 h-5" />
-                        Launch App
+                        <QrCode className="w-5 h-5" />
+                        Start Scanning
                     </Link>
                 </motion.div>
 

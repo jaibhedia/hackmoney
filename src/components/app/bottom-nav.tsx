@@ -1,45 +1,76 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { QrCode, Receipt, Users } from "lucide-react"
+import { QrCode, Wallet, Users, User, Home, Scale, Receipt } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useStaking } from "@/hooks/useStaking"
+import { useWallet } from "@/hooks/useWallet"
 
+/**
+ * Role-based bottom navigation
+ * - Regular users: Home, Wallet, Scan, Orders, Profile
+ * - LPs: Home, Wallet, Scan, LP, Profile
+ * - DAO/Arbitrators: Home, Wallet, Scan, DAO, Profile
+ */
 export function BottomNav() {
     const pathname = usePathname()
+    const { stakeProfile, fetchStakeProfile } = useStaking()
+    const { address } = useWallet()
+    const [isArbitrator, setIsArbitrator] = useState(false)
+
+    // Fetch stake profile on mount
+    useEffect(() => {
+        if (address) {
+            fetchStakeProfile()
+            // Check if user is an arbitrator (Gold+ tier qualifies)
+            // In production, this would check on-chain DAO membership
+        }
+    }, [address, fetchStakeProfile])
+
+    // Determine if user qualifies as arbitrator (Gold tier or above)
+    useEffect(() => {
+        if (stakeProfile) {
+            const arbitratorTiers = ['Gold', 'Diamond']
+            setIsArbitrator(arbitratorTiers.includes(stakeProfile.tier))
+        }
+    }, [stakeProfile])
+
+    const isLP = stakeProfile?.isLP ?? false
 
     return (
         <div className="fixed bottom-0 left-0 right-0 bg-[#0f0f13] border-t border-[#2a2a32] safe-area-bottom">
             <div className="flex items-center justify-around h-16 max-w-md mx-auto px-2">
-                {/* Buy */}
+                {/* Home/Dashboard */}
                 <Link
-                    href="/buy"
+                    href="/dashboard"
                     className={cn(
                         "flex flex-col items-center px-3 py-2 rounded-lg text-xs font-medium transition-colors",
-                        pathname === "/buy"
+                        pathname === "/dashboard"
                             ? "text-[#3b82f6]"
                             : "text-[#8b8b9e] hover:text-white"
                     )}
                 >
-                    <span className="text-lg mb-1">₿</span>
-                    Buy
+                    <Home className="w-5 h-5 mb-1" />
+                    Home
                 </Link>
 
-                {/* Solver */}
+                {/* Wallet */}
                 <Link
-                    href="/solver"
+                    href="/wallet"
                     className={cn(
                         "flex flex-col items-center px-3 py-2 rounded-lg text-xs font-medium transition-colors",
-                        pathname === "/solver"
+                        pathname === "/wallet"
                             ? "text-[#3b82f6]"
                             : "text-[#8b8b9e] hover:text-white"
                     )}
                 >
-                    <Users className="w-5 h-5 mb-1" />
-                    Solver
+                    <Wallet className="w-5 h-5 mb-1" />
+                    Wallet
                 </Link>
 
-                {/* Scan & Pay */}
+                {/* Scan & Pay - Always visible, center button */}
                 <Link
                     href="/scan"
                     className="flex flex-col items-center -mt-6"
@@ -55,32 +86,60 @@ export function BottomNav() {
                     <span className="text-[10px] text-[#8b8b9e] mt-1">Scan</span>
                 </Link>
 
-                {/* Orders */}
-                <Link
-                    href="/orders"
-                    className={cn(
-                        "flex flex-col items-center px-3 py-2 rounded-lg text-xs font-medium transition-colors",
-                        pathname === "/orders"
-                            ? "text-[#3b82f6]"
-                            : "text-[#8b8b9e] hover:text-white"
-                    )}
-                >
-                    <Receipt className="w-5 h-5 mb-1" />
-                    Orders
-                </Link>
+                {/* Role-based 4th tab: LP for LPs, DAO for arbitrators, Orders for regular users */}
+                {isLP ? (
+                    <Link
+                        href="/solver"
+                        className={cn(
+                            "flex flex-col items-center px-3 py-2 rounded-lg text-xs font-medium transition-colors",
+                            pathname === "/solver" || pathname === "/lp/register"
+                                ? "text-[#f59e0b]"
+                                : "text-[#8b8b9e] hover:text-white"
+                        )}
+                    >
+                        <Users className="w-5 h-5 mb-1" />
+                        LP
+                    </Link>
+                ) : isArbitrator ? (
+                    <Link
+                        href="/arbitrator"
+                        className={cn(
+                            "flex flex-col items-center px-3 py-2 rounded-lg text-xs font-medium transition-colors",
+                            pathname === "/arbitrator"
+                                ? "text-[#a855f7]"
+                                : "text-[#8b8b9e] hover:text-white"
+                        )}
+                    >
+                        <Scale className="w-5 h-5 mb-1" />
+                        DAO
+                    </Link>
+                ) : (
+                    <Link
+                        href="/orders"
+                        className={cn(
+                            "flex flex-col items-center px-3 py-2 rounded-lg text-xs font-medium transition-colors",
+                            pathname === "/orders"
+                                ? "text-[#3b82f6]"
+                                : "text-[#8b8b9e] hover:text-white"
+                        )}
+                    >
+                        <Receipt className="w-5 h-5 mb-1" />
+                        Orders
+                    </Link>
+                )}
 
-                {/* Sell */}
+                {/* Profile */}
                 <Link
-                    href="/sell"
+                    href="/profile"
                     className={cn(
                         "flex flex-col items-center px-3 py-2 rounded-lg text-xs font-medium transition-colors",
-                        pathname === "/sell"
+                        pathname === "/profile"
                             ? "text-[#3b82f6]"
                             : "text-[#8b8b9e] hover:text-white"
                     )}
                 >
-                    <span className="text-lg mb-1">$</span>
-                    Sell
+                    <User className="w-5 h-5 mb-1" />
+                    Profile
                 </Link>
             </div>
         </div>

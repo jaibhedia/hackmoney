@@ -6,8 +6,9 @@ async function main() {
     const [deployer] = await hre.ethers.getSigners();
     console.log("Deploying contracts with account:", deployer.address);
 
-    // Get USDC address on Arc Testnet
-    const USDC_ADDRESS = process.env.USDC_ADDRESS || "0x0000000000000000000000000000000000000001";
+    // Arc Testnet Native USDC (precompile address)
+    const USDC_ADDRESS = "0x3600000000000000000000000000000000000000";
+    console.log("Using USDC at:", USDC_ADDRESS);
 
     // ============================================
     // 1. Deploy P2PEscrowV2

@@ -8,6 +8,7 @@ import { WalletConnect } from "@/components/app/wallet-connect"
 import { useWallet } from "@/hooks/useWallet"
 import { useUserOrders, Order } from "@/hooks/useOrders"
 import { useFraudProfile } from "@/hooks/useFraudProfile"
+import { useStaking, TIER_CONFIG } from "@/hooks/useStaking"
 import { usdcToFiat, formatCurrency } from "@/lib/currency-converter"
 import { useRouter } from "next/navigation"
 import { RiskIndicator, StakeRequirement, OrderBlockedWarning } from "@/components/app/risk-indicator"
@@ -43,6 +44,14 @@ export default function SellPage() {
         isLoading: isAnalyzing,
         getRequiredStake
     } = useFraudProfile(address ?? undefined)
+    const { stakeProfile, fetchStakeProfile } = useStaking()
+
+    // Fetch stake profile on mount
+    useEffect(() => {
+        if (address) {
+            fetchStakeProfile()
+        }
+    }, [address, fetchStakeProfile])
 
     useEffect(() => {
         setMounted(true)
@@ -51,8 +60,17 @@ export default function SellPage() {
     const fiatAmount = amount !== "0" ? usdcToFiat(parseFloat(amount), "INR") : 0
     const hasEnoughBalance = parseFloat(amount) <= parseFloat(balanceFormatted)
 
+    // Get current tier limit (must be after fiatAmount is defined)
+    const currentTierConfig = TIER_CONFIG.find(t => t.name === (stakeProfile?.tier || 'Starter')) || TIER_CONFIG[0]
+    const orderExceedsTierLimit = fiatAmount > currentTierConfig.orderLimit
+
     const handleContinue = async () => {
         if (amount === "0" || parseFloat(amount) < 10 || !hasEnoughBalance) return
+
+        // Check tier limit
+        if (orderExceedsTierLimit) {
+            return // Show tier limit warning in UI
+        }
 
         // Run fraud analysis before proceeding
         const assessment = await analyzeOrderRisk({
@@ -216,6 +234,22 @@ export default function SellPage() {
                         </div>
                     )}
 
+                    {/* Tier Limit Warning */}
+                    {orderExceedsTierLimit && fiatAmount > 0 && (
+                        <div className="bg-warning/10 border border-warning p-3 mb-4 font-mono">
+                            <div className="flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-xs text-warning font-bold uppercase">TIER_LIMIT_EXCEEDED</p>
+                                    <p className="text-[10px] text-text-secondary mt-1">
+                                        {">"} Your {stakeProfile?.tier || 'Starter'} tier limit: {formatCurrency(currentTierConfig.orderLimit, 'INR')}<br/>
+                                        {">"} <Link href="/stake" className="text-brand underline">UPGRADE_TIER</Link> to increase limit
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Numpad */}
                     <div className="border-t border-brand/20 pt-6">
                         <Numpad value={amount} onChange={setAmount} />
@@ -224,14 +258,14 @@ export default function SellPage() {
                     {/* Continue Button */}
                     <button
                         onClick={handleContinue}
-                        disabled={amount === "0" || parseFloat(amount) < 10 || !hasEnoughBalance}
+                        disabled={amount === "0" || parseFloat(amount) < 10 || !hasEnoughBalance || orderExceedsTierLimit}
                         className="w-full mt-6 py-4 bg-brand text-black font-bold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-hover transition-colors font-mono relative overflow-hidden"
                     >
                         <span className="relative z-10">{">"} PROCEED_TO_DETAILS</span>
                         <div className="absolute inset-0 bg-white/20 translate-y-full hover:translate-y-0 transition-transform duration-300" />
                     </button>
                     <p className="text-[10px] text-text-secondary text-center mt-2 uppercase font-mono">
-                        MIN_REQUIRED: $10.00 USDC
+                        MIN: $10 USDC | MAX: {currentTierConfig.orderLimit === Infinity ? 'UNLIMITED' : formatCurrency(currentTierConfig.orderLimit, 'INR')}
                     </p>
                 </>
             )}

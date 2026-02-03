@@ -1,7 +1,9 @@
 /**
- * P2P Escrow Contract ABI for Arc Testnet
+ * P2P Escrow Contract ABI for Arc Chain
  * 
- * This contract handles USDC escrow for P2P transactions.
+ * Fully decentralized escrow for P2P transactions.
+ * No KYC - permissionless platform.
+ * 
  * Functions:
  * - createEscrow: Lock USDC in escrow for an order
  * - releaseEscrow: Release USDC to recipient

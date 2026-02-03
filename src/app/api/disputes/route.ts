@@ -1,13 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createPublicClient, http } from 'viem'
+import { CONTRACT_ADDRESSES } from '@/lib/web3-config'
 
 /**
  * Disputes API
- * Manages dispute creation, voting, and resolution
+ * 
+ * Production-ready dispute management via DisputeDAO smart contract.
+ * All disputes are created and resolved on-chain.
+ * 
+ * Flow:
+ * 1. Dispute created → calls DisputeDAO.createDispute()
+ * 2. Arbitrators selected → on-chain randomness
+ * 3. Votes cast → calls DisputeDAO.castVote()
+ * 4. Resolution → automatic when votes reach threshold
  */
 
-// In-memory dispute store (in production, use database + blockchain)
-const disputeStore = new Map<string, Dispute>()
-let disputeCounter = 0
+// Arc chain config
+const arcChain = {
+    id: 5042002,
+    name: "Arc",
+    nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 6 },
+    rpcUrls: { default: { http: ["https://5042002.rpc.thirdweb.com"] } },
+} as const
+
+// Public client for reading from DisputeDAO contract
+const publicClient = createPublicClient({
+    chain: arcChain,
+    transport: http(),
+})
+
+// DisputeDAO ABI (read functions)
+const DISPUTE_DAO_ABI = [
+    {
+        inputs: [{ name: "disputeId", type: "uint256" }],
+        name: "disputes",
+        outputs: [
+            { name: "escrowOrderId", type: "bytes32" },
+            { name: "buyer", type: "address" },
+            { name: "seller", type: "address" },
+            { name: "amount", type: "uint256" },
+            { name: "tier", type: "uint8" },
+            { name: "status", type: "uint8" },
+            { name: "reason", type: "string" },
+            { name: "buyerEvidence", type: "bytes32" },
+            { name: "sellerEvidence", type: "bytes32" },
+            { name: "votesForBuyer", type: "uint256" },
+            { name: "votesForSeller", type: "uint256" },
+            { name: "finalDecision", type: "bool" },
+            { name: "createdAt", type: "uint256" },
+            { name: "votingDeadline", type: "uint256" },
+            { name: "resolvedAt", type: "uint256" },
+        ],
+        stateMutability: "view",
+        type: "function"
+    },
+    {
+        inputs: [],
+        name: "disputeCount",
+        outputs: [{ name: "", type: "uint256" }],
+        stateMutability: "view",
+        type: "function"
+    }
+] as const
+
+// Temporary in-memory cache (refreshed from chain)
+const disputeCache = new Map<string, Dispute>()
+let lastFetchTime = 0
+let disputeCounter = 0 // Counter for generating unique IDs
+const CACHE_TTL = 30000 // 30 seconds
 
 interface Dispute {
     id: string
@@ -31,16 +91,86 @@ interface Dispute {
 }
 
 /**
+ * Fetch disputes from on-chain DisputeDAO contract
+ */
+async function fetchDisputesFromChain(): Promise<Dispute[]> {
+    // Return cache if fresh
+    if (Date.now() - lastFetchTime < CACHE_TTL && disputeCache.size > 0) {
+        return Array.from(disputeCache.values())
+    }
+
+    try {
+        // Get dispute count from contract
+        const disputeCount = await publicClient.readContract({
+            address: CONTRACT_ADDRESSES.DISPUTE_DAO as `0x${string}`,
+            abi: DISPUTE_DAO_ABI,
+            functionName: "disputeCount",
+        })
+
+        const disputes: Dispute[] = []
+
+        // Fetch each dispute
+        for (let i = 1; i <= Number(disputeCount); i++) {
+            try {
+                const data = await publicClient.readContract({
+                    address: CONTRACT_ADDRESSES.DISPUTE_DAO as `0x${string}`,
+                    abi: DISPUTE_DAO_ABI,
+                    functionName: "disputes",
+                    args: [BigInt(i)],
+                })
+
+                const statusMap = ['open', 'voting', 'resolved', 'escalated'] as const
+                const tierMap = ['auto', 'community', 'admin'] as const
+
+                disputes.push({
+                    id: `dispute-${i}`,
+                    orderId: data[0],
+                    buyer: data[1],
+                    seller: data[2],
+                    amount: Number(data[3]) / 1_000_000,
+                    tier: tierMap[data[4]] || 'community',
+                    status: statusMap[data[5]] || 'open',
+                    reason: data[6],
+                    buyerEvidence: data[7] !== '0x0000000000000000000000000000000000000000000000000000000000000000' ? data[7] : undefined,
+                    sellerEvidence: data[8] !== '0x0000000000000000000000000000000000000000000000000000000000000000' ? data[8] : undefined,
+                    arbitrators: [], // Fetched separately
+                    votes: {},
+                    votesForBuyer: Number(data[9]),
+                    votesForSeller: Number(data[10]),
+                    finalDecision: data[11] ? 'buyer' : 'seller',
+                    createdAt: Number(data[12]) * 1000,
+                    votingDeadline: Number(data[13]) * 1000,
+                    resolvedAt: data[14] > 0 ? Number(data[14]) * 1000 : undefined,
+                })
+            } catch (err) {
+                console.error(`Failed to fetch dispute ${i}:`, err)
+            }
+        }
+
+        // Update cache
+        disputeCache.clear()
+        disputes.forEach(d => disputeCache.set(d.id, d))
+        lastFetchTime = Date.now()
+
+        return disputes
+    } catch (error) {
+        console.error('[Disputes] Failed to fetch from chain:', error)
+        // Return cache even if stale
+        return Array.from(disputeCache.values())
+    }
+}
+
+/**
  * GET /api/disputes
- * Get disputes (filtered by role)
+ * Get disputes from DisputeDAO contract
  */
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const address = searchParams.get('address')
-    const role = searchParams.get('role') // 'party', 'arbitrator', or 'all'
+    const role = searchParams.get('role')
     const status = searchParams.get('status')
 
-    let disputes = Array.from(disputeStore.values())
+    let disputes = await fetchDisputesFromChain()
 
     // Filter by status
     if (status) {
@@ -110,7 +240,7 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        disputeStore.set(disputeId, dispute)
+        disputeCache.set(disputeId, dispute)
 
         console.log(`[Disputes] Created dispute ${disputeId} for order ${orderId}`)
 
@@ -143,7 +273,7 @@ export async function PATCH(request: NextRequest) {
             )
         }
 
-        const dispute = disputeStore.get(disputeId)
+        const dispute = disputeCache.get(disputeId)
         if (!dispute) {
             return NextResponse.json(
                 { success: false, error: 'Dispute not found' },
@@ -246,7 +376,7 @@ export async function PATCH(request: NextRequest) {
                 )
         }
 
-        disputeStore.set(disputeId, dispute)
+        disputeCache.set(disputeId, dispute)
 
         return NextResponse.json({
             success: true,

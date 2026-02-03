@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronLeft, Clock, CheckCircle, Loader2, ArrowDownLeft } from "lucide-react"
+import { ChevronLeft, Clock, CheckCircle, Loader2, ArrowDownLeft, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { Numpad } from "@/components/app/numpad"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { WalletConnect } from "@/components/app/wallet-connect"
 import { useWallet } from "@/hooks/useWallet"
+import { useStaking, TIER_CONFIG } from "@/hooks/useStaking"
 import { fiatToUsdc, formatCurrency } from "@/lib/currency-converter"
 import { useRouter } from "next/navigation"
 
@@ -39,6 +40,18 @@ export default function BuyPage() {
     const [countdown, setCountdown] = useState(15 * 60) // 15 minutes in seconds
 
     const { address, isConnected } = useWallet()
+    const { stakeProfile, fetchStakeProfile } = useStaking()
+
+    // Fetch stake profile on mount
+    useEffect(() => {
+        if (address) {
+            fetchStakeProfile()
+        }
+    }, [address, fetchStakeProfile])
+
+    // Get current tier limit
+    const currentTierConfig = TIER_CONFIG.find(t => t.name === (stakeProfile?.tier || 'Starter')) || TIER_CONFIG[0]
+    const orderExceedsTierLimit = parseFloat(amount) > currentTierConfig.orderLimit
 
     useEffect(() => {
         setMounted(true)
@@ -66,6 +79,11 @@ export default function BuyPage() {
 
     const handleContinue = () => {
         if (amount === "0" || parseFloat(amount) < 100) return
+
+        // Check tier limit
+        if (orderExceedsTierLimit) {
+            return // Show tier limit warning in UI
+        }
 
         // Generate order ID
         setOrderId(`BUY_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`)
@@ -168,17 +186,33 @@ export default function BuyPage() {
                         <Numpad value={amount} onChange={setAmount} />
                     </div>
 
+                    {/* Tier Limit Warning */}
+                    {orderExceedsTierLimit && parseFloat(amount) > 0 && (
+                        <div className="mt-4 bg-warning/10 border border-warning p-3 font-mono">
+                            <div className="flex items-start gap-2">
+                                <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-xs text-warning font-bold uppercase">TIER_LIMIT_EXCEEDED</p>
+                                    <p className="text-[10px] text-text-secondary mt-1">
+                                        {">"} Your {stakeProfile?.tier || 'Starter'} tier limit: {formatCurrency(currentTierConfig.orderLimit, 'INR')}<br/>
+                                        {">"} <Link href="/stake" className="text-brand underline">UPGRADE_TIER</Link> to increase limit
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Execute Button */}
                     <button
                         onClick={handleContinue}
-                        disabled={amount === "0" || parseFloat(amount) < 100}
+                        disabled={amount === "0" || parseFloat(amount) < 100 || orderExceedsTierLimit}
                         className="w-full mt-6 py-4 bg-brand text-black font-bold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-hover transition-colors font-mono relative overflow-hidden"
                     >
                         <span className="relative z-10">{">"} EXECUTE_ORDER</span>
                         <div className="absolute inset-0 bg-white/20 translate-y-full hover:translate-y-0 transition-transform duration-300" />
                     </button>
                     <p className="text-[10px] text-text-secondary text-center mt-2 uppercase font-mono">
-                        MIN_REQUIRED: ₹100.00
+                        MIN: ₹100 | MAX: {currentTierConfig.orderLimit === Infinity ? 'UNLIMITED' : formatCurrency(currentTierConfig.orderLimit, 'INR')}
                     </p>
                 </>
             )}

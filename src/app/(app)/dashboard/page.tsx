@@ -1,15 +1,20 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Plus, ArrowDownLeft, Send, History, Wallet, X, Loader2 } from "lucide-react"
+import { Plus, ArrowDownLeft, Send, History, Wallet, X, Loader2, QrCode, Users, Scale, Shield, User, Receipt, Settings, ChevronRight } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { WalletConnect } from "@/components/app/wallet-connect"
 import { BottomNav } from "@/components/app/bottom-nav"
+import { TierProgress } from "@/components/app/tier-progress"
 import { useWallet } from "@/hooks/useWallet"
+import { useStaking } from "@/hooks/useStaking"
 
 export default function DashboardPage() {
-    const { isConnected, address, balance, shortAddress, isLoading, deposit } = useWallet()
+    const router = useRouter()
+    const { isConnected, address, balance, shortAddress, isLoading, isFirstTimeUser } = useWallet()
+    const { stakeProfile, fetchStakeProfile } = useStaking()
     const [mounted, setMounted] = useState(false)
     const [showDepositModal, setShowDepositModal] = useState(false)
     const [depositAmount, setDepositAmount] = useState("")
@@ -17,20 +22,28 @@ export default function DashboardPage() {
 
     useEffect(() => {
         setMounted(true)
-    }, [])
+        if (address) {
+            fetchStakeProfile()
+        }
+    }, [address, fetchStakeProfile])
+
+    // Redirect first-time users to onboarding
+    useEffect(() => {
+        if (mounted && isConnected && isFirstTimeUser) {
+            router.push('/onboarding')
+        }
+    }, [mounted, isConnected, isFirstTimeUser, router])
 
     const handleDeposit = async () => {
         const amount = parseFloat(depositAmount)
-        if (isNaN(amount) || amount <= 0) return
+        if (isNaN(amount) || amount <= 0 || !address) return
 
         setIsDepositing(true)
-        const success = await deposit(amount)
+        // Show user their wallet address to send USDC
+        alert(`Send ${amount} USDC to your wallet:\n${address}`)
         setIsDepositing(false)
-
-        if (success) {
-            setShowDepositModal(false)
-            setDepositAmount("")
-        }
+        setShowDepositModal(false)
+        setDepositAmount("")
     }
 
     if (!mounted) {
@@ -128,10 +141,18 @@ export default function DashboardPage() {
                 </div>
             </div>
 
+            {/* Tier Progress */}
+            <div className="mb-8">
+                <h3 className="text-xs text-text-secondary uppercase mb-3 px-1 border-l-2 border-brand pl-2">
+                    Trust_Status
+                </h3>
+                <TierProgress compact showUpgradePrompt />
+            </div>
+
             {/* Command Palette / Actions */}
             <div className="mb-8">
                 <h3 className="text-xs text-text-secondary uppercase mb-3 px-1 border-l-2 border-brand pl-2">
-                    Execute_Command
+                    Quick_Actions
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
                     <Link
@@ -139,27 +160,130 @@ export default function DashboardPage() {
                         className="flex flex-col gap-2 p-4 border border-border bg-card hover:border-brand hover:bg-surface-hover transition-all group"
                     >
                         <div className="flex justify-between items-start">
-                            <Send className="w-5 h-5 text-text-secondary group-hover:text-brand transition-colors" />
+                            <QrCode className="w-5 h-5 text-text-secondary group-hover:text-brand transition-colors" />
                             <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">CMD_01</span>
                         </div>
                         <div>
-                            <span className="block text-sm font-bold group-hover:text-brand">INIT_PAYMENT</span>
-                            <span className="text-[10px] text-text-secondary lowercase">{">>"} scan_qr_code</span>
+                            <span className="block text-sm font-bold group-hover:text-brand">SCAN_&_PAY</span>
+                            <span className="text-[10px] text-text-secondary lowercase">{">>"} scan_upi_qr</span>
                         </div>
                     </Link>
 
                     <Link
-                        href="/solver"
-                        className="flex flex-col gap-2 p-4 border border-border bg-card hover:border-warning hover:bg-surface-hover transition-all group"
+                        href="/wallet"
+                        className="flex flex-col gap-2 p-4 border border-border bg-card hover:border-success hover:bg-surface-hover transition-all group"
                     >
                         <div className="flex justify-between items-start">
-                            <ArrowDownLeft className="w-5 h-5 text-text-secondary group-hover:text-warning transition-colors" />
+                            <Wallet className="w-5 h-5 text-text-secondary group-hover:text-success transition-colors" />
                             <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">CMD_02</span>
                         </div>
                         <div>
-                            <span className="block text-sm font-bold group-hover:text-warning">PROVIDE_LIQ</span>
-                            <span className="text-[10px] text-text-secondary lowercase">{">>"} visualize_order_book</span>
+                            <span className="block text-sm font-bold group-hover:text-success">WALLET</span>
+                            <span className="text-[10px] text-text-secondary lowercase">{">>"} deposit_withdraw</span>
                         </div>
+                    </Link>
+
+                    <Link
+                        href="/orders"
+                        className="flex flex-col gap-2 p-4 border border-border bg-card hover:border-purple-500 hover:bg-surface-hover transition-all group"
+                    >
+                        <div className="flex justify-between items-start">
+                            <Receipt className="w-5 h-5 text-text-secondary group-hover:text-purple-500 transition-colors" />
+                            <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">CMD_03</span>
+                        </div>
+                        <div>
+                            <span className="block text-sm font-bold group-hover:text-purple-500">ORDERS</span>
+                            <span className="text-[10px] text-text-secondary lowercase">{">>"} view_history</span>
+                        </div>
+                    </Link>
+
+                    {/* LP Mode - Only show for LPs */}
+                    {stakeProfile?.isLP && (
+                        <Link
+                            href="/solver"
+                            className="flex flex-col gap-2 p-4 border border-border bg-card hover:border-warning hover:bg-surface-hover transition-all group"
+                        >
+                            <div className="flex justify-between items-start">
+                                <Users className="w-5 h-5 text-text-secondary group-hover:text-warning transition-colors" />
+                                <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">LP</span>
+                            </div>
+                            <div>
+                                <span className="block text-sm font-bold group-hover:text-warning">LP_MODE</span>
+                                <span className="text-[10px] text-text-secondary lowercase">{">>"} provide_liquidity</span>
+                            </div>
+                        </Link>
+                    )}
+
+                    {/* DAO Access - Only show for Gold+ tier users */}
+                    {stakeProfile && ['Gold', 'Diamond'].includes(stakeProfile.tier) && (
+                        <Link
+                            href="/arbitrator"
+                            className="flex flex-col gap-2 p-4 border border-border bg-card hover:border-purple-500 hover:bg-surface-hover transition-all group"
+                        >
+                            <div className="flex justify-between items-start">
+                                <Scale className="w-5 h-5 text-text-secondary group-hover:text-purple-500 transition-colors" />
+                                <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">DAO</span>
+                            </div>
+                            <div>
+                                <span className="block text-sm font-bold group-hover:text-purple-500">DAO_VOTING</span>
+                                <span className="text-[10px] text-text-secondary lowercase">{">>"} resolve_disputes</span>
+                            </div>
+                        </Link>
+                    )}
+                </div>
+            </div>
+
+            {/* More Options */}
+            <div className="mb-8">
+                <h3 className="text-xs text-text-secondary uppercase mb-3 px-1 border-l-2 border-brand pl-2">
+                    More_Options
+                </h3>
+                <div className="border border-border bg-surface/50 divide-y divide-border">
+                    <Link href="/stake" className="flex items-center justify-between p-4 hover:bg-surface-hover transition-colors group">
+                        <div className="flex items-center gap-3">
+                            <Shield className="w-5 h-5 text-blue-500" />
+                            <div>
+                                <span className="block text-sm font-medium text-text-primary group-hover:text-brand">Stake USDC</span>
+                                <span className="text-[10px] text-text-secondary">Increase your tier & limits</span>
+                            </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-text-muted" />
+                    </Link>
+                    
+                    {/* LP Registration - Show for non-LPs who want to become LPs */}
+                    {!stakeProfile?.isLP && stakeProfile && ['Gold', 'Diamond'].includes(stakeProfile.tier) && (
+                        <Link href="/lp/register" className="flex items-center justify-between p-4 hover:bg-surface-hover transition-colors group">
+                            <div className="flex items-center gap-3">
+                                <Users className="w-5 h-5 text-warning" />
+                                <div>
+                                    <span className="block text-sm font-medium text-text-primary group-hover:text-brand">Become an LP</span>
+                                    <span className="text-[10px] text-text-secondary">Provide liquidity & earn fees</span>
+                                </div>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-text-muted" />
+                        </Link>
+                    )}
+                    
+                    <Link href="/profile" className="flex items-center justify-between p-4 hover:bg-surface-hover transition-colors group">
+                        <div className="flex items-center gap-3">
+                            <User className="w-5 h-5 text-green-500" />
+                            <div>
+                                <span className="block text-sm font-medium text-text-primary group-hover:text-brand">Profile</span>
+                                <span className="text-[10px] text-text-secondary">Reputation & account details</span>
+                            </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-text-muted" />
+                    </Link>
+                    
+                    <Link href="/settings" className="flex items-center justify-between p-4 hover:bg-surface-hover transition-colors group">
+                        <div className="flex items-center gap-3">
+                            <Settings className="w-5 h-5 text-gray-500" />
+                            <div>
+                                <span className="block text-sm font-medium text-text-primary group-hover:text-brand">Settings</span>
+                                <span className="text-[10px] text-text-secondary">App preferences</span>
+                            </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-text-muted" />
                     </Link>
                 </div>
             </div>

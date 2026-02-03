@@ -5,6 +5,7 @@ import { ChevronLeft, Power, Check, Upload, Clock, AlertTriangle, Loader2, X, Do
 import Link from "next/link"
 import { BottomNav } from "@/components/app/bottom-nav"
 import { QRScanner } from "@/components/app/qr-scanner"
+import { WalletConnect } from "@/components/app/wallet-connect"
 import { useWallet } from "@/hooks/useWallet"
 import { formatCurrency } from "@/lib/currency-converter"
 import { Order } from "@/app/api/orders/sse/route"
@@ -22,7 +23,7 @@ import { Order } from "@/app/api/orders/sse/route"
 
 export default function SolverPage() {
     const fileInputRef = useRef<HTMLInputElement>(null)
-    const { isConnected, address, balance, deposit, displayName } = useWallet()
+    const { isConnected, address, balance, displayName, isLoading: walletLoading } = useWallet()
     const [mounted, setMounted] = useState(false)
     const [isActive, setIsActive] = useState(false)
     const [orders, setOrders] = useState<Order[]>([])
@@ -157,9 +158,9 @@ export default function SolverPage() {
 
             const data = await res.json()
             if (data.success) {
-                // Add USDC to LP balance
-                const usdcReceived = data.usdcTransferred || acceptedOrder.amountUsdc
-                await deposit(usdcReceived)
+                // USDC is transferred on-chain by the escrow contract
+                // Balance will auto-update via useWalletBalance
+                console.log(`[Solver] Settlement complete, received ${acceptedOrder.amountUsdc} USDC`)
                 setAcceptedOrder(data.order)
                 setStep("settled")
             } else {
@@ -257,6 +258,18 @@ export default function SolverPage() {
         )
     }
 
+    // Show loading while wallet is initializing
+    if (walletLoading) {
+        return (
+            <div className="pb-24 pt-6 px-4 max-w-md mx-auto min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-brand mx-auto mb-4" />
+                    <p className="text-xs text-text-secondary uppercase">INITIALIZING_WALLET...</p>
+                </div>
+            </div>
+        )
+    }
+
     if (!isConnected) {
         return (
             <div className="pb-24 pt-6 px-4 max-w-md mx-auto min-h-screen">
@@ -267,19 +280,17 @@ export default function SolverPage() {
                     </Link>
                 </div>
                 <div className="bg-black border-2 border-brand/50 p-8 text-center relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-2 opacity-30 text-[10px] uppercase text-brand">ACCESS_DENIED</div>
+                    <div className="absolute top-0 right-0 p-2 opacity-30 text-[10px] uppercase text-brand">ACCESS_REQUIRED</div>
 
                     <DollarSign className="w-16 h-16 text-brand mx-auto mb-6 opacity-80" />
-                    <h2 className="text-xl font-bold mb-2 uppercase text-white tracking-widest">RESTRICTED_AREA</h2>
+                    <h2 className="text-xl font-bold mb-2 uppercase text-white tracking-widest">LP_TERMINAL</h2>
                     <p className="text-sm text-text-secondary font-mono mb-6 max-w-xs mx-auto">
                         {">"} AUTHENTICATION_REQUIRED<br />
                         {">"} CONNECT_WALLET_TO_ACCESS_LP_TOOLS
                     </p>
-                    <Link href="/dashboard" className="inline-block w-full py-4 bg-brand text-black font-bold uppercase tracking-wider hover:bg-brand-hover relative overflow-hidden">
-                        [ INITIALIZE_LINK ]
-                        <div className="absolute inset-0 bg-white/20 translate-x-[-100%] hover:translate-x-0 transition-transform duration-300" />
-                    </Link>
+                    <WalletConnect />
                 </div>
+                <BottomNav />
             </div>
         )
     }

@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ChevronLeft, Clock, Check, AlertTriangle, X, Loader2, RefreshCw, Terminal } from "lucide-react"
+import { ChevronLeft, Clock, Check, AlertTriangle, X, Loader2, RefreshCw, Terminal, Shield } from "lucide-react"
 import { BottomNav } from "@/components/app/bottom-nav"
 import { useWallet } from "@/hooks/useWallet"
 import { Order } from "@/app/api/orders/sse/route"
 import { formatCurrency } from "@/lib/currency-converter"
+import { TrustBadge } from "@/components/app/trust-score-card"
 
 /**
  * User Orders Page
@@ -247,9 +248,14 @@ export default function OrdersPage() {
                             </div>
 
                             {selectedOrder.solverId && (
-                                <div className="mb-6 p-2 border border-border bg-surface/20">
-                                    <p className="text-[10px] text-text-secondary uppercase mb-1">CONNECTED_PEER</p>
-                                    <p className="font-mono text-xs text-white break-all">{selectedOrder.solverId}</p>
+                                <div className="mb-6 p-3 border border-border bg-surface/20">
+                                    <p className="text-[10px] text-text-secondary uppercase mb-2">CONNECTED_PEER</p>
+                                    <p className="font-mono text-xs text-white break-all mb-3">{selectedOrder.solverId}</p>
+                                    <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                                        <Shield className="w-3 h-3 text-brand" />
+                                        <span className="text-[10px] text-text-secondary uppercase">TRUST_STATUS:</span>
+                                        <TrustBadge address={selectedOrder.solverId} />
+                                    </div>
                                 </div>
                             )}
 

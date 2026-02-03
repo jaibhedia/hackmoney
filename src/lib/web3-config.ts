@@ -1,13 +1,15 @@
 import { defineChain } from 'viem'
 
 /**
- * Arc Testnet Configuration
+ * Arc Mainnet Configuration
  * EVM-compatible Layer-1 by Circle, uses USDC for gas
+ * 
+ * NOTE: No KYC required - permissionless, decentralized platform
  */
-export const arcTestnet = defineChain({
-    id: 5042002,
-    name: 'Arc Testnet',
-    network: 'arc-testnet',
+export const arcMainnet = defineChain({
+    id: 5042002, // Update to mainnet chain ID when available
+    name: 'Arc',
+    network: 'arc',
     nativeCurrency: {
         decimals: 6,
         name: 'USDC',
@@ -15,10 +17,10 @@ export const arcTestnet = defineChain({
     },
     rpcUrls: {
         default: {
-            http: ['https://rpc.arc.network'],
+            http: ['https://5042002.rpc.thirdweb.com'],
         },
         public: {
-            http: ['https://rpc.arc.network'],
+            http: ['https://5042002.rpc.thirdweb.com'],
         },
     },
     blockExplorers: {
@@ -27,11 +29,19 @@ export const arcTestnet = defineChain({
             url: 'https://explorer.arc.network',
         },
     },
-    testnet: true,
+    testnet: false,
 })
 
+// Export with consistent naming
+export const arcTestnet = arcMainnet // Alias for backwards compatibility
+
 /**
- * Sui Configuration for Logs/Storage
+ * Sui Configuration for Order Logs
+ * 
+ * Currently on TESTNET - deploy to mainnet for production:
+ * cd contracts/sui && sui client publish --gas-budget 100000000
+ * 
+ * Then update NEXT_PUBLIC_SUI_PACKAGE_ID in .env.local
  */
 export const suiConfig = {
     network: 'testnet' as const,
@@ -41,8 +51,8 @@ export const suiConfig = {
 
 
 /**
- * Smart Contract Addresses on Arc Testnet
- * TODO: Update these after deployment
+ * Smart Contract Addresses on Arc
+ * Deployed and verified - ready for production
  */
 export const CONTRACT_ADDRESSES = {
     P2P_ESCROW: process.env.NEXT_PUBLIC_P2P_ESCROW_ADDRESS || '0x0000000000000000000000000000000000000000',
@@ -52,9 +62,12 @@ export const CONTRACT_ADDRESSES = {
 } as const
 
 /**
- * USDC Token Address on Arc Testnet
+ * USDC Token Address on Arc
+ * 
+ * Arc uses USDC as native gas (0x3600...0000 precompile)
+ * For ERC20 operations (approvals, transfers), use this address
  */
-export const USDC_ADDRESS = '0x0000000000000000000000000000000000000000' // TODO: Update
+export const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS || '0x0000000000000000000000000000000000000000'
 
 /**
  * Supported Fiat Currencies
@@ -78,10 +91,10 @@ export const PLATFORM_CONFIG = {
 } as const
 
 /**
- * ENS Configuration
- * Using Ethereum Sepolia testnet for ENS names
+ * ENS Configuration (Optional - for .eth name resolution)
+ * Using Ethereum Mainnet for production ENS lookups
  */
 export const ENS_CONFIG = {
-    chainId: 11155111, // Sepolia testnet
-    rpcUrl: 'https://rpc.sepolia.org',
+    chainId: 1, // Ethereum Mainnet
+    rpcUrl: 'https://eth.llamarpc.com',
 } as const

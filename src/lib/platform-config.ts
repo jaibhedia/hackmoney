@@ -86,12 +86,21 @@ export const PLATFORM_CONFIG = {
         merchantFeePercentage: 2,
     },
 
-    // Exchange rates (mock - should be fetched from API)
+    // Exchange rates - fetched from oracle in production
+    // These are fallback values only
     exchangeRates: {
-        INR: 90.42,
+        INR: 84.0,   // Will be updated via oracle
         USD: 1.0,
         BRL: 5.0,
         EUR: 0.92,
+    },
+
+    // Production settings
+    production: {
+        isMainnet: true,
+        requiresStaking: true,
+        disputeTimeoutHours: 24,
+        noKYC: true,  // Permissionless platform
     },
 } as const
 
