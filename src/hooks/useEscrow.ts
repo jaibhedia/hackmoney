@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useWallet } from './useWallet'
 import { useSuiLogs, type TransactionLog } from './useSuiLogs'
 import { getContract, prepareContractCall, sendTransaction, waitForReceipt } from 'thirdweb'
@@ -8,6 +8,7 @@ import { thirdwebClient, arcTestnetChain } from '@/lib/thirdweb-config'
 import { CONTRACT_ADDRESSES, USDC_ADDRESS } from '@/lib/web3-config'
 import { P2P_ESCROW_ABI, USDC_ABI, orderIdToBytes32, parseUsdc, formatUsdc, EscrowStatus } from '@/lib/escrow-abi'
 import { useActiveAccount } from 'thirdweb/react'
+import { getExchangeRate } from '@/lib/currency-converter'
 
 /**
  * P2P Escrow Hook with Arc Testnet Integration
@@ -112,8 +113,8 @@ export function useEscrow() {
 
         setIsProcessing(true)
         try {
-            // Calculate USDC amount based on exchange rate
-            const exchangeRate = currency === 'INR' ? 90.42 : 1
+            // Calculate USDC amount based on live exchange rate
+            const exchangeRate = getExchangeRate(currency)
             const amountUsdc = amountFiat / exchangeRate
 
             // Generate order ID
@@ -179,8 +180,8 @@ export function useEscrow() {
 
         setIsProcessing(true)
         try {
-            // Calculate fiat amount
-            const exchangeRate = currency === 'INR' ? 90.42 : 1
+            // Calculate fiat amount using live exchange rate
+            const exchangeRate = getExchangeRate(currency)
             const amountFiat = amountUsdc * exchangeRate
 
             // Generate order ID

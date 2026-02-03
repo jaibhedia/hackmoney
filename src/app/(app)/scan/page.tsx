@@ -34,9 +34,21 @@ export default function ScanPage() {
     const [qrImage, setQrImage] = useState<string | null>(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [showScanner, setShowScanner] = useState(false) // For live camera QR capture
+    const [liveRate, setLiveRate] = useState<number>(83.50) // Default, will be fetched
 
     useEffect(() => {
         setMounted(true)
+        // Fetch live rate
+        const fetchRate = async () => {
+            try {
+                const { fetchLiveRates } = await import('@/lib/currency-converter')
+                const rates = await fetchLiveRates()
+                setLiveRate(rates.INR || 83.50)
+            } catch {
+                setLiveRate(83.50)
+            }
+        }
+        fetchRate()
     }, [])
 
     // Poll for order updates when waiting
@@ -68,7 +80,7 @@ export default function ScanPage() {
     }, [orderId, step])
 
     const fiatAmount = parseFloat(amount) || 0
-    const usdcAmount = fiatAmount / 90.42 // INR to USDC rate
+    const usdcAmount = fiatAmount / liveRate // Live INR to USDC rate
 
     // Step 1: Create order with amount only
     const handleCreateOrder = async () => {

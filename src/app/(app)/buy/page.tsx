@@ -41,6 +41,21 @@ export default function BuyPage() {
 
     const { address, isConnected } = useWallet()
     const { stakeProfile, fetchStakeProfile } = useStaking()
+    const [liveRate, setLiveRate] = useState<number | null>(null)
+
+    // Fetch live rate on mount
+    useEffect(() => {
+        const fetchRate = async () => {
+            try {
+                const { fetchLiveRates } = await import('@/lib/currency-converter')
+                const rates = await fetchLiveRates()
+                setLiveRate(rates.INR || 83.50)
+            } catch {
+                setLiveRate(83.50)
+            }
+        }
+        fetchRate()
+    }, [])
 
     // Fetch stake profile on mount
     useEffect(() => {
@@ -173,7 +188,7 @@ export default function BuyPage() {
                         </div>
                         <div className="p-2 flex justify-between border-b border-border/50">
                             <span className="text-text-secondary">EXCHANGE_RATE</span>
-                            <span>1 USDC = ₹90.42</span>
+                            <span>1 USDC = ₹{liveRate?.toFixed(2) || '...'} <span className="text-green-400 text-[10px]">(live)</span></span>
                         </div>
                         <div className="p-2 flex justify-between bg-brand/5">
                             <span className="text-brand font-bold">OUTPUT_ESTIMATE</span>

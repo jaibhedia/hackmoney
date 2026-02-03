@@ -63,8 +63,33 @@ const ORDER_EXPIRY_MINUTES = 15
 // Sui object IDs for orders (in production, stored in Sui)
 const orderSuiIds: Map<string, string> = new Map()
 
-// Exchange rate (in production, fetch from oracle)
-const EXCHANGE_RATE_INR = 90.42
+// Exchange rate cache (fetched from CoinGecko)
+let cachedExchangeRate = 83.50
+let lastRateFetch = 0
+const RATE_CACHE_MS = 60000 // 1 minute
+
+async function getExchangeRateINR(): Promise<number> {
+    const now = Date.now()
+    if (now - lastRateFetch < RATE_CACHE_MS) {
+        return cachedExchangeRate
+    }
+    
+    try {
+        const response = await fetch(
+            'https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=inr',
+            { signal: AbortSignal.timeout(5000) }
+        )
+        if (response.ok) {
+            const data = await response.json()
+            cachedExchangeRate = data['usd-coin']?.inr || 83.50
+            lastRateFetch = now
+            console.log('[Orders] Live INR rate:', cachedExchangeRate)
+        }
+    } catch (error) {
+        console.warn('[Orders] Failed to fetch live rate, using cached:', error)
+    }
+    return cachedExchangeRate
+}
 
 /**
  * Verify user's USDC balance on-chain
@@ -122,7 +147,8 @@ async function verifyTierLimit(
         })
 
         const tradingLimit = Number(result[2]) / 1_000_000 // USDC limit
-        const tradingLimitFiat = tradingLimit * EXCHANGE_RATE_INR
+        const exchangeRate = await getExchangeRateINR()
+        const tradingLimitFiat = tradingLimit * exchangeRate
 
         // If user has no stake, default limit is 5000 INR (Starter tier)
         const effectiveLimit = tradingLimit === 0 ? 5000 : tradingLimitFiat
@@ -262,7 +288,9 @@ export async function POST(request: NextRequest) {
         }
 
         // SECURITY: Calculate fiat amount server-side, don't trust client
-        const serverCalculatedFiat = amountUsdc * EXCHANGE_RATE_INR
+        const exchangeRate = await getExchangeRateINR()
+        const serverCalculatedFiat = amountUsdc * exchangeRate
+        console.log(`[Orders] Using live rate: ₹${exchangeRate.toFixed(2)} per USDC`)
 
         // SECURITY: Verify on-chain balance for sell orders
         if (type === "sell") {
