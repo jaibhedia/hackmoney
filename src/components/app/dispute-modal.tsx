@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { X, AlertTriangle, FileText, Upload, Clock, Loader } from "lucide-react"
-import { uploadToIPFS } from "@/lib/ipfs-storage"
+import { uploadToIpfs } from "@/lib/ipfs-storage"
 
 export interface DisputeData {
     orderId: string
@@ -66,8 +66,16 @@ export function DisputeModal({ orderId, orderAmount, merchantName, onSubmit, onC
             const evidenceUrls: string[] = []
             for (const file of evidence) {
                 try {
-                    const url = await uploadToIPFS(file)
-                    evidenceUrls.push(url)
+                    const result = await uploadToIpfs(file, {
+                        disputeId: orderId,
+                        submittedBy: 'user',
+                        type: 'other',
+                        description: reason,
+                        timestamp: Date.now(),
+                    })
+                    if (result.success && result.url) {
+                        evidenceUrls.push(result.url)
+                    }
                 } catch (err) {
                     console.error('Failed to upload file:', file.name, err)
                 }

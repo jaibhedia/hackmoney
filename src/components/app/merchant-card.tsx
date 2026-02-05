@@ -57,10 +57,14 @@ export function MerchantCard({ address, name, paymentDetails, onSelect, showExte
                     <div className="flex items-center gap-2 mb-1">
                         <p className="font-bold text-text-primary">{name}</p>
                         {reputation.trustScore >= 95 && (
-                            <Shield className="w-4 h-4 text-brand" title="Verified LP" />
+                            <span title="Verified LP">
+                                <Shield className="w-4 h-4 text-brand" />
+                            </span>
                         )}
                         {reputation.totalTrades >= 100 && (
-                            <Zap className="w-4 h-4 text-warning" title="Power Trader" />
+                            <span title="Power Trader">
+                                <Zap className="w-4 h-4 text-warning" />
+                            </span>
                         )}
                     </div>
                     <p className="text-xs text-text-secondary font-mono">
