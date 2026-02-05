@@ -20,11 +20,11 @@ import { Loader2, Shield, AlertTriangle } from "lucide-react"
 // Public routes that don't require auth
 const PUBLIC_ROUTES = ["/", "/onboarding"]
 
-// LP-only routes
-const LP_ROUTES = ["/solver", "/lp/register", "/lp"]
+// LP-only routes (excluding register which anyone can access)
+const LP_ROUTES = ["/solver", "/lp"]
 
-// Arbitrator-only routes  
-const ARBITRATOR_ROUTES = ["/arbitrator"]
+// Arbitrator-only routes - REMOVED restriction, anyone can view DAO
+// const ARBITRATOR_ROUTES = ["/arbitrator"]
 
 // Routes that regular users can't access if they're LPs
 const USER_ONLY_ROUTES: string[] = [] // All routes accessible to everyone
@@ -48,7 +48,8 @@ export function RouteGuard({ children }: RouteGuardProps) {
     const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
 
     const isLP = stakeProfile?.isLP ?? false
-    const isArbitrator = stakeProfile?.tier === 'Gold' || stakeProfile?.tier === 'Diamond'
+    // Arbitrator status used for UI only, not route blocking
+    // const isArbitrator = stakeProfile?.tier === 'Gold' || stakeProfile?.tier === 'Diamond'
 
     // Reset activity timer on user interaction
     const resetActivityTimer = useCallback(() => {
@@ -118,10 +119,10 @@ export function RouteGuard({ children }: RouteGuardProps) {
                 return
             }
 
-            // Not connected - redirect to home
+            // Not connected - redirect to onboarding to login
             if (!isConnected) {
-                console.log("[RouteGuard] Not connected - redirecting to home")
-                router.replace("/")
+                console.log("[RouteGuard] Not connected - redirecting to onboarding")
+                router.replace("/onboarding")
                 setIsAuthorized(false)
                 setIsChecking(false)
                 return
@@ -132,27 +133,19 @@ export function RouteGuard({ children }: RouteGuardProps) {
                 return
             }
 
-            // Check LP routes
-            if (LP_ROUTES.some(route => pathname.startsWith(route))) {
-                if (!isLP && pathname !== "/lp/register") {
-                    console.log("[RouteGuard] Non-LP trying to access LP route - redirecting")
-                    router.replace("/dashboard")
+            // Check LP routes (solver and lp dashboard only - not register)
+            if (LP_ROUTES.some(route => pathname === route || (pathname.startsWith(route + "/") && !pathname.startsWith("/lp/register")))) {
+                if (!isLP) {
+                    console.log("[RouteGuard] Non-LP trying to access LP route - redirecting to register")
+                    router.replace("/lp/register")
                     setIsAuthorized(false)
                     setIsChecking(false)
                     return
                 }
             }
 
-            // Check arbitrator routes
-            if (ARBITRATOR_ROUTES.some(route => pathname.startsWith(route))) {
-                if (!isArbitrator) {
-                    console.log("[RouteGuard] Non-arbitrator trying to access DAO route - redirecting")
-                    router.replace("/dashboard")
-                    setIsAuthorized(false)
-                    setIsChecking(false)
-                    return
-                }
-            }
+            // Arbitrator/DAO routes are open to all logged-in users
+            // They can view disputes, only voting is restricted by tier
 
             // All checks passed
             setIsAuthorized(true)
@@ -160,7 +153,7 @@ export function RouteGuard({ children }: RouteGuardProps) {
         }
 
         checkAuthorization()
-    }, [pathname, isConnected, walletLoading, stakeLoading, isLP, isArbitrator, router])
+    }, [pathname, isConnected, walletLoading, stakeLoading, isLP, router])
 
     // Prevent browser back button from going to unauthorized routes
     useEffect(() => {
@@ -217,21 +210,21 @@ export function RouteGuard({ children }: RouteGuardProps) {
         )
     }
 
-    // Not authorized
+    // Not authorized - prompt to login
     if (!isAuthorized && !PUBLIC_ROUTES.includes(pathname)) {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center">
                 <div className="text-center font-mono p-6">
-                    <Shield className="w-12 h-12 text-error mx-auto mb-4" />
-                    <h2 className="text-lg font-bold text-text-primary mb-2">Access Denied</h2>
+                    <Loader2 className="w-12 h-12 text-brand mx-auto mb-4" />
+                    <h2 className="text-lg font-bold text-text-primary mb-2">Login Required</h2>
                     <p className="text-sm text-text-secondary mb-4">
-                        You don't have permission to access this page.
+                        Please sign in to access this page.
                     </p>
                     <button
-                        onClick={() => router.replace("/dashboard")}
-                        className="px-6 py-3 bg-brand text-white rounded-lg font-bold"
+                        onClick={() => router.replace("/onboarding")}
+                        className="px-6 py-3 bg-white text-black rounded-lg font-bold hover:bg-gray-200 transition-all"
                     >
-                        Go to Dashboard
+                        Sign In
                     </button>
                 </div>
             </div>

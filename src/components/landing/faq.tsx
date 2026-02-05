@@ -21,9 +21,12 @@ export function FAQ() {
     ]
 
     return (
-        <section className="py-32 relative z-10">
-            <div className="max-w-4xl mx-auto px-6">
-                <h2 className="text-5xl md:text-6xl font-bold text-white mb-20">
+        <section className="py-24 relative z-10 bg-[#030304] overflow-hidden">
+             {/* Minimalist Grid Pattern */}
+             <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808005_1px,transparent_1px),linear-gradient(to_bottom,#80808005_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] z-0" />
+
+            <div className="max-w-4xl mx-auto px-6 relative z-10">
+                <h2 className="text-4xl md:text-5xl font-medium text-white mb-20 tracking-tight">
                     Frequently Asked <br /> Questions
                 </h2>
 

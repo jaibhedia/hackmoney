@@ -6,115 +6,90 @@ import { Scale, Users, Vote, Shield, ArrowUpRight } from "lucide-react"
 
 export function DAOSection() {
     return (
-        <section id="dao" className="py-32 relative overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_#2d1b4e_0%,_transparent_60%)] opacity-30 z-0" />
+        <section id="dao" className="py-24 relative overflow-hidden bg-[#030304]">
+             {/* Minimalist Grid Pattern */}
+             <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808005_1px,transparent_1px),linear-gradient(to_bottom,#80808005_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] z-0" />
             
             <div className="max-w-7xl mx-auto px-6 relative z-10">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
                     {/* Content */}
                     <motion.div
                         initial={{ opacity: 0, x: -30 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true }}
                     >
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 mb-6">
-                            <Scale className="w-4 h-4 text-purple-400" />
-                            <span className="text-purple-400 text-sm font-medium">Community Governance</span>
-                        </div>
-                        
-                        <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">
-                            Dispute Resolution <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">DAO</span>
+                        <h2 className="text-4xl md:text-5xl font-medium mb-6 tracking-tight text-white">
+                            Community <br/>
+                            <span className="text-gray-500">Governance.</span>
                         </h2>
                         
-                        <p className="text-gray-400 text-lg mb-8">
+                        <p className="text-gray-400 text-lg mb-12 leading-relaxed">
                             Our community-driven dispute resolution ensures fair outcomes for every trade. 
                             Qualified arbitrators vote on disputes, with transparent on-chain governance.
                         </p>
                         
-                        {/* Features */}
-                        <div className="space-y-4 mb-8">
+                        {/* Features - Aave Minimalist List */}
+                        <div className="space-y-8 mb-12">
                             {[
-                                { icon: Users, title: "Community Arbitrators", desc: "Qualified stakers can become arbitrators" },
-                                { icon: Vote, title: "Democratic Voting", desc: "Multi-sig voting ensures fair decisions" },
-                                { icon: Shield, title: "Stake Protection", desc: "Losers are slashed, winners are protected" }
+                                { title: "Community Arbitrators", desc: "Qualified stakers can become arbitrators" },
+                                { title: "Democratic Voting", desc: "Multi-sig voting ensures fair decisions" },
+                                { title: "Stake Protection", desc: "Losers are slashed, winners are protected" }
                             ].map((feature, i) => (
-                                <div key={i} className="flex items-start gap-4">
-                                    <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
-                                        <feature.icon className="w-5 h-5 text-purple-400" />
+                                <div key={i} className="group cursor-default">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="text-lg font-medium text-white group-hover:text-[#22C55E] transition-colors">{feature.title}</h3>
+                                        <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[#22C55E] text-xl">→</span>
                                     </div>
-                                    <div>
-                                        <div className="font-medium text-white">{feature.title}</div>
-                                        <div className="text-sm text-gray-500">{feature.desc}</div>
-                                    </div>
+                                    <p className="text-gray-500 text-sm border-b border-white/5 pb-6 group-hover:border-[#22C55E]/30 transition-colors">
+                                        {feature.desc}
+                                    </p>
                                 </div>
                             ))}
                         </div>
                         
-                        <Link
-                            href="/dao"
-                            className="inline-flex items-center gap-3 px-6 py-3 bg-white/5 border border-white/10 text-white font-medium rounded-lg hover:bg-white/10 transition-all group"
-                        >
-                            <Scale className="w-5 h-5" />
-                            Enter Dispute DAO
-                            <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                        </Link>
                     </motion.div>
-                    
-                    {/* Visual */}
+
+                    {/* Stats - Redone Minimalist Grid */}
                     <motion.div
-                        initial={{ opacity: 0, x: 30 }}
-                        whileInView={{ opacity: 1, x: 0 }}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
                         viewport={{ once: true }}
-                        className="relative"
+                        className="grid grid-cols-2 gap-4"
                     >
-                        <div className="relative bg-gradient-to-br from-purple-900/30 to-pink-900/20 border border-purple-500/20 rounded-3xl p-8">
-                            {/* Dispute Resolution Visual */}
-                            <div className="bg-black/40 rounded-2xl p-6 border border-white/10 mb-4">
-                                <div className="flex items-center justify-between mb-4">
-                                    <span className="text-xs text-purple-400 font-mono uppercase">On-Chain DAO</span>
-                                    <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">Live</span>
+                        {[
+                            { label: "Total Disputes", value: "1,248", icon: Scale },
+                            { label: "Resolution Time", value: "~12h", icon: Users },
+                            { label: "Active Arbitrators", value: "400+", icon: Vote },
+                            { label: "Accuracy Rate", value: "99.8%", icon: Shield }
+                        ].map((stat, i) => (
+                            <div key={i} className="bg-white/[0.02] border border-white/10 p-6 flex flex-col justify-between h-40 group hover:border-white/20 transition-colors">
+                                <div className="flex justify-between items-start">
+                                    <span className="text-xs text-gray-500 uppercase tracking-wider">{stat.label}</span>
+                                    <stat.icon className="w-5 h-5 text-gray-600 group-hover:text-[#22C55E] transition-colors" />
                                 </div>
-                                <div className="text-white font-medium mb-2">Decentralized Dispute Resolution</div>
-                                <div className="text-sm text-gray-500 mb-4">3 arbitrators vote on each dispute</div>
-                                
-                                {/* How it works */}
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2 text-sm text-gray-400">
-                                        <span className="w-6 h-6 rounded-full bg-purple-500/30 flex items-center justify-center text-xs">1</span>
-                                        <span>Dispute raised on-chain</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm text-gray-400">
-                                        <span className="w-6 h-6 rounded-full bg-purple-500/30 flex items-center justify-center text-xs">2</span>
-                                        <span>3 arbitrators randomly selected</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm text-gray-400">
-                                        <span className="w-6 h-6 rounded-full bg-purple-500/30 flex items-center justify-center text-xs">3</span>
-                                        <span>Majority vote wins, funds released</span>
-                                    </div>
+                                <div className="text-3xl font-medium text-white">
+                                    {stat.value}
                                 </div>
                             </div>
-                            
-                            {/* Features */}
-                            <div className="grid grid-cols-3 gap-4">
-                                <div className="text-center p-4 bg-black/30 rounded-xl">
-                                    <div className="text-2xl font-bold text-white">4hr</div>
-                                    <div className="text-xs text-gray-500">Max Resolution</div>
-                                </div>
-                                <div className="text-center p-4 bg-black/30 rounded-xl">
-                                    <div className="text-2xl font-bold text-white">3</div>
-                                    <div className="text-xs text-gray-500">Arbitrators</div>
-                                </div>
-                                <div className="text-center p-4 bg-black/30 rounded-xl">
-                                    <div className="text-2xl font-bold text-white">0.5%</div>
-                                    <div className="text-xs text-gray-500">Arb Reward</div>
-                                </div>
-                            </div>
-                            
-                            {/* Glow */}
-                            <div className="absolute -inset-4 bg-purple-500/10 blur-3xl -z-10 rounded-3xl" />
-                        </div>
+                        ))}
                     </motion.div>
                 </div>
+
+                {/* CTA */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="text-center mt-20"
+                >
+                    <Link
+                        href="/arbitrator"
+                        className="inline-flex items-center gap-3 px-8 py-3 bg-white text-black font-semibold rounded hover:bg-gray-200 transition-all group"
+                    >
+                        Enter DAO
+                        <span className="group-hover:translate-x-1 transition-transform">→</span>
+                    </Link>
+                </motion.div>
             </div>
         </section>
     )

@@ -6,9 +6,12 @@ import { Check, QrCode } from "lucide-react"
 
 export function Hero() {
     return (
-        <div className="relative pt-32 pb-20 min-h-screen flex items-center overflow-hidden">
-            {/* Globe Background Gradient */}
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center_80%,_#1e3a8a_0%,_#000000_60%)] opacity-40 z-0 pointer-events-none" />
+        <div className="relative pt-32 pb-20 min-h-screen flex items-center overflow-hidden bg-[#030304]">
+            {/* Background Gradient - Minimalist */}
+            <div className="absolute top-0 left-0 right-0 h-[500px] bg-[radial-gradient(circle_at_top,_#1e1b4b_0%,_transparent_50%)] opacity-40 z-0 pointer-events-none" />
+            
+            {/* Grid Pattern */}
+             <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808005_1px,transparent_1px),linear-gradient(to_bottom,#80808005_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] z-0" />
 
             <div className="max-w-7xl mx-auto px-6 md:px-12 w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
 
@@ -18,28 +21,30 @@ export function Hero() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8 }}
                 >
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 mb-8 backdrop-blur-md">
-                        <div className="w-6 h-6 rounded-md bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-[10px] font-bold">uw</div>
-                        <span className="text-white font-bold">uWu</span>
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 mb-8 backdrop-blur-md">
+                        <span className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse" />
+                        <span className="text-gray-300 text-sm font-medium">Live on Arc Testnet</span>
                     </div>
 
-                    <h1 className="text-6xl md:text-7xl font-bold text-white tracking-tight mb-6">
-                        Scan. Pay. <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Done.</span>
+                    <h1 className="text-6xl md:text-7xl font-bold text-white tracking-tight mb-8 leading-tight">
+                        Payments <br />
+                        <span className="text-gray-500">Reimagined.</span>
                     </h1>
 
                     <p className="text-lg text-gray-400 max-w-md mb-10 leading-relaxed">
-                        Pay anywhere that accepts QR codes using USDC. Deposit to your Arc wallet, scan any UPI QR, and our LPs handle the fiat settlement instantly.
+                        The first truly decentralized P2P fiat-to-crypto ramp. 
+                        Pay any UPI QR code instantly using your stablecoins.
                     </p>
 
                     <div className="space-y-4 mb-10">
                         {[
-                            "Deposit & Withdraw USDC on Arc",
-                            "Scan any UPI QR to pay",
-                            "Instant LP matching & settlement"
+                            "Zero custody, fully on-chain settlement",
+                            "Trustless P2P using zk-verify logic",
+                            "Earn 3.5% yield as a Liquidity Provider"
                         ].map((item, i) => (
                             <div key={i} className="flex items-center gap-3">
-                                <div className="w-5 h-5 rounded-full bg-blue-600/20 flex items-center justify-center">
-                                    <Check className="w-3 h-3 text-blue-500" />
+                                <div className="w-5 h-5 rounded-full bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
+                                    <Check className="w-3 h-3 text-purple-400" />
                                 </div>
                                 <span className="text-gray-300 font-medium">{item}</span>
                             </div>
@@ -48,7 +53,7 @@ export function Hero() {
 
                     <Link
                         href="/onboarding"
-                        className="inline-flex items-center gap-3 px-8 py-4 bg-white text-black font-bold rounded-lg hover:bg-gray-100 transition-all group"
+                        className="inline-flex items-center gap-3 px-8 py-4 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-all shadow-lg shadow-white/5 group"
                     >
                         <QrCode className="w-5 h-5" />
                         Start Scanning

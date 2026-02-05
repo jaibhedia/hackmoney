@@ -193,6 +193,8 @@ export function useStaking() {
 
         try {
             const escrowContract = getEscrowContract()
+            // console.log('[Staking] Fetching profile for:', account.address)
+            // console.log('[Staking] Contract:', escrowContract.address)
             
             const result = await readContract({
                 contract: escrowContract,
@@ -220,7 +222,17 @@ export function useStaking() {
             setStakeProfile(profile)
             return profile
         } catch (err) {
-            console.error('[Staking] Failed to fetch profile:', err)
+            // "execution reverted" is expected for new users without stake profiles
+            // or when contract is not deployed - handle silently
+            const errorMessage = err instanceof Error ? err.message : String(err)
+            const isExpectedError = errorMessage.includes('execution reverted') || 
+                                   errorMessage.includes('call revert exception') ||
+                                   errorMessage.includes('could not decode result')
+            
+            if (!isExpectedError) {
+                console.warn('[Staking] Unexpected error fetching profile:', errorMessage)
+            }
+            
             // Return default profile for new users
             const defaultProfile: StakeProfile = {
                 baseStake: 0,

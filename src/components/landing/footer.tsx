@@ -5,9 +5,12 @@ import { Facebook, Github, Instagram, Linkedin, Twitter } from "lucide-react"
 
 export function Footer() {
     return (
-        <footer className="relative bg-black pt-32 pb-12 overflow-hidden border-t border-white/5">
+        <footer className="relative bg-[#030304] pt-32 pb-12 overflow-hidden border-t border-white/5">
+            {/* Minimalist Grid Pattern */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808005_1px,transparent_1px),linear-gradient(to_bottom,#80808005_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] z-0" />
+
             {/* Watermark */}
-            <div className="absolute bottom-0 left-0 w-full flex justify-center select-none pointer-events-none opacity-20 overflow-hidden">
+            <div className="absolute bottom-0 left-0 w-full flex justify-center select-none pointer-events-none opacity-[0.03] overflow-hidden">
                 <h1 className="text-[40vw] font-black leading-none tracking-tighter text-white translate-y-[30%]">
                     uWu
                 </h1>
@@ -16,10 +19,7 @@ export function Footer() {
             <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16 mb-20">
                 <div className="lg:col-span-1">
                     <div className="flex items-center gap-2 mb-6">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#A855F7] to-[#EC4899] flex items-center justify-center">
-                            <span className="text-white font-bold text-sm">uw</span>
-                        </div>
-                        <span className="text-xl font-bold text-white">uWu</span>
+                        <span className="text-xl font-bold text-white tracking-tighter hover:text-[#22C55E] transition-colors">uWu</span>
                     </div>
                     <p className="text-gray-500 text-sm leading-relaxed max-w-xs">
                         A decentralized liquidity protocol for the next generation of on-chain finance.

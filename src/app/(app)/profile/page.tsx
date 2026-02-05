@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { 
     ChevronLeft, User, Shield, TrendingUp, Award, Clock, 
     CheckCircle, XCircle, AlertTriangle, Copy, ExternalLink,
-    Star, Coins, History, Settings, AtSign, Loader2, Check
+    Star, Coins, History, Settings, AtSign, Loader2, Check, LogOut
 } from "lucide-react"
 import { useWallet } from "@/hooks/useWallet"
 import { useStaking, TIER_CONFIG, type Tier } from "@/hooks/useStaking"
@@ -29,7 +30,8 @@ import { Button } from "@/components/ui/button"
  */
 
 export default function ProfilePage() {
-    const { isConnected, address, balance, displayName } = useWallet()
+    const router = useRouter()
+    const { isConnected, address, balance, displayName, disconnect } = useWallet()
     const { stakeProfile, isLoading: stakeLoading, fetchStakeProfile } = useStaking()
     const { trustData, isLoading: trustLoading } = useTrustScore()
     const { uwuName, isLoading: uwuLoading, register, checkAvailability } = useUwuName(address || undefined)
@@ -94,6 +96,11 @@ export default function ProfilePage() {
             setCopied(true)
             setTimeout(() => setCopied(false), 2000)
         }
+    }
+
+    const handleDisconnect = async () => {
+        await disconnect()
+        router.push('/')
     }
 
     const getTierColor = (tier: Tier) => {
@@ -471,7 +478,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 mb-6">
                 <Link
                     href="/orders"
                     className="bg-surface border border-border p-4 text-center hover:border-brand/50 transition-colors"
@@ -487,6 +494,15 @@ export default function ProfilePage() {
                     <div className="text-sm font-medium text-text-primary">DAO Disputes</div>
                 </Link>
             </div>
+
+            {/* Logout Button */}
+            <button 
+                onClick={handleDisconnect}
+                className="w-full py-4 bg-red-500/10 border border-red-500/20 text-red-400 font-medium flex items-center justify-center gap-2 hover:bg-red-500/20 transition-colors"
+            >
+                <LogOut className="w-5 h-5" />
+                Disconnect Wallet
+            </button>
         </div>
     )
 }

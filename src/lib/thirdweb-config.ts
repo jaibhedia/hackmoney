@@ -18,7 +18,17 @@ export const thirdwebClient = createThirdwebClient({
  * Arc Chain Definition for Thirdweb
  * EVM-compatible Layer-1 by Circle, uses USDC for gas
  */
-export const arcChain = defineChain(5042002)
+export const arcChain = defineChain({
+    id: 5042002,
+    name: 'Arc',
+    nativeCurrency: {
+        name: 'USDC',
+        symbol: 'USDC',
+        decimals: 6,
+    },
+    rpc: 'https://5042002.rpc.thirdweb.com',
+    testnet: true,
+})
 
 // Alias for backwards compatibility
 export const arcTestnetChain = arcChain
