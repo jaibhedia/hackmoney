@@ -1,11 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { 
     ChevronLeft, Shield, Coins, Check, AlertTriangle, Loader2, 
-    DollarSign, Clock, Users, TrendingUp, Percent
+    DollarSign, Clock, Users, TrendingUp, Percent, Home
 } from "lucide-react"
 import { useWallet } from "@/hooks/useWallet"
 import { useStaking, TIER_CONFIG } from "@/hooks/useStaking"
@@ -14,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { WalletConnect } from "@/components/app/wallet-connect"
+import { useSafeNavigation } from "@/hooks/useSafeNavigation"
 
 /**
  * LP Registration Page
@@ -36,6 +36,7 @@ const RECOMMENDED_STAKE = 500 // USDC for Gold tier
 
 export default function LPRegisterPage() {
     const router = useRouter()
+    const { goBack, goHome } = useSafeNavigation()
     const { isConnected, address, balanceFormatted, isLoading: walletLoading } = useWallet()
     const { 
         stakeProfile, 
@@ -178,12 +179,12 @@ export default function LPRegisterPage() {
                     <h1 className="text-2xl font-bold text-text-primary mb-2">BECOME_LP</h1>
                     <p className="text-text-secondary text-sm uppercase mb-6">Connect wallet to continue</p>
                     <WalletConnect />
-                    <Link 
-                        href="/dashboard" 
-                        className="block mt-4 text-xs text-text-secondary hover:text-brand uppercase"
+                    <button 
+                        onClick={goBack}
+                        className="block mt-4 text-xs text-text-secondary hover:text-brand uppercase mx-auto"
                     >
                         ← Back to Dashboard
-                    </Link>
+                    </button>
                 </div>
             </div>
         )
@@ -195,9 +196,9 @@ export default function LPRegisterPage() {
             <header className="border-b border-border p-4">
                 <div className="max-w-2xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Link href="/stake" className="text-text-secondary hover:text-text-primary">
+                        <button onClick={goBack} className="text-text-secondary hover:text-text-primary">
                             <ChevronLeft size={20} />
-                        </Link>
+                        </button>
                         <div>
                             <h1 className="text-lg font-bold text-text-primary font-mono uppercase">
                                 Become_LP
@@ -207,6 +208,9 @@ export default function LPRegisterPage() {
                             </p>
                         </div>
                     </div>
+                    <button onClick={goHome} className="text-text-secondary hover:text-brand">
+                        <Home size={20} />
+                    </button>
                 </div>
             </header>
 

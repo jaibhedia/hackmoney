@@ -1,14 +1,15 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { ChevronLeft, Power, Check, Upload, Clock, AlertTriangle, Loader2, X, DollarSign, History, Gift, Camera } from "lucide-react"
-import Link from "next/link"
+import { ChevronLeft, Power, Check, Upload, Clock, AlertTriangle, Loader2, X, DollarSign, History, Gift, Camera, Home } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { BottomNav } from "@/components/app/bottom-nav"
 import { QRScanner } from "@/components/app/qr-scanner"
 import { WalletConnect } from "@/components/app/wallet-connect"
 import { useWallet } from "@/hooks/useWallet"
 import { formatCurrency } from "@/lib/currency-converter"
 import { Order } from "@/app/api/orders/sse/route"
+import { useSafeNavigation } from "@/hooks/useSafeNavigation"
 
 /**
  * LP (Solver) Dashboard
@@ -22,6 +23,8 @@ import { Order } from "@/app/api/orders/sse/route"
  */
 
 export default function SolverPage() {
+    const router = useRouter()
+    const { goBack, goHome, isLP } = useSafeNavigation()
     const fileInputRef = useRef<HTMLInputElement>(null)
     const { isConnected, address, balance, displayName, isLoading: walletLoading } = useWallet()
     const [mounted, setMounted] = useState(false)
@@ -274,10 +277,10 @@ export default function SolverPage() {
         return (
             <div className="pb-24 pt-6 px-4 max-w-md mx-auto min-h-screen">
                 <div className="flex items-center justify-between mb-8 border-b border-border pb-4 border-dashed">
-                    <Link href="/dashboard" className="flex items-center gap-2 text-text-secondary hover:text-brand uppercase text-xs tracking-wider">
+                    <button onClick={goBack} className="flex items-center gap-2 text-text-secondary hover:text-brand uppercase text-xs tracking-wider">
                         <ChevronLeft className="w-4 h-4" />
                         [BACK]
-                    </Link>
+                    </button>
                 </div>
                 <div className="bg-black border-2 border-brand/50 p-8 text-center relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-2 opacity-30 text-[10px] uppercase text-brand">ACCESS_REQUIRED</div>
@@ -307,15 +310,17 @@ export default function SolverPage() {
 
             {/* Header */}
             <div className="flex items-center justify-between mb-8 border-b border-border pb-4 border-dashed">
-                <Link href="/dashboard" className="flex items-center gap-2 text-text-secondary hover:text-brand transition-colors uppercase text-xs tracking-wider">
+                <button onClick={goBack} className="flex items-center gap-2 text-text-secondary hover:text-brand transition-colors uppercase text-xs tracking-wider">
                     <ChevronLeft className="w-4 h-4" />
-                    [BACK_TO_ROOT]
-                </Link>
+                    [BACK]
+                </button>
                 <div className="text-center">
                     <h1 className="text-lg font-bold uppercase text-brand">LP_TERMINAL</h1>
                     <p className="text-[10px] text-text-secondary uppercase">MODE: LIQUIDITY_SOLVER</p>
                 </div>
-                <div className="w-8"></div>
+                <button onClick={goHome} className="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-brand">
+                    <Home className="w-4 h-4" />
+                </button>
             </div>
 
             {/* Balance & Earnings (Data Grid) */}

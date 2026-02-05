@@ -1,13 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import { X, AlertTriangle, FileText, Upload } from "lucide-react"
+import { X, AlertTriangle, FileText, Upload, Clock, Loader } from "lucide-react"
+import { uploadToIPFS } from "@/lib/ipfs-storage"
 
 export interface DisputeData {
     orderId: string
     reason: string
     description: string
+    utr: string
     evidence: File[]
+    evidenceUrls: string[]
 }
 
 interface DisputeModalProps {
@@ -25,8 +28,10 @@ interface DisputeModalProps {
 export function DisputeModal({ orderId, orderAmount, merchantName, onSubmit, onClose }: DisputeModalProps) {
     const [reason, setReason] = useState('')
     const [description, setDescription] = useState('')
+    const [utr, setUtr] = useState('')
     const [evidence, setEvidence] = useState<File[]>([])
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [uploadingFiles, setUploadingFiles] = useState(false)
 
     const disputeReasons = [
         'Payment not received',
@@ -35,9 +40,15 @@ export function DisputeModal({ orderId, orderAmount, merchantName, onSubmit, onC
         'Other (explain below)',
     ]
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
-            setEvidence([...evidence, ...Array.from(e.target.files)])
+            const newFiles = Array.from(e.target.files)
+            // Limit to 3 files max
+            if (evidence.length + newFiles.length > 3) {
+                alert('Maximum 3 files allowed')
+                return
+            }
+            setEvidence([...evidence, ...newFiles])
         }
     }
 
@@ -50,11 +61,26 @@ export function DisputeModal({ orderId, orderAmount, merchantName, onSubmit, onC
 
         setIsSubmitting(true)
         try {
+            // Upload evidence files to IPFS
+            setUploadingFiles(true)
+            const evidenceUrls: string[] = []
+            for (const file of evidence) {
+                try {
+                    const url = await uploadToIPFS(file)
+                    evidenceUrls.push(url)
+                } catch (err) {
+                    console.error('Failed to upload file:', file.name, err)
+                }
+            }
+            setUploadingFiles(false)
+
             await onSubmit({
                 orderId,
                 reason,
                 description,
+                utr,
                 evidence,
+                evidenceUrls,
             })
             onClose()
         } catch (error) {
@@ -89,6 +115,17 @@ export function DisputeModal({ orderId, orderAmount, merchantName, onSubmit, onC
                         <p className="text-xs text-text-secondary">
                             Only raise a dispute if there's a genuine issue. False disputes may affect your reputation.
                         </p>
+                    </div>
+
+                    {/* SLA Banner */}
+                    <div className="bg-brand/10 border border-brand/30 p-3 flex items-center gap-3">
+                        <Clock className="w-8 h-8 text-brand" />
+                        <div>
+                            <p className="text-sm font-bold text-brand">{"<"} 4 Hour Resolution</p>
+                            <p className="text-xs text-text-secondary">
+                                We commit to reviewing and resolving your dispute within 4 hours
+                            </p>
+                        </div>
                     </div>
 
                     {/* Order Info */}
@@ -145,20 +182,42 @@ export function DisputeModal({ orderId, orderAmount, merchantName, onSubmit, onC
                         </p>
                     </div>
 
+                    {/* UTR Number */}
+                    <div>
+                        <label className="text-xs text-text-secondary uppercase mb-2 block">
+                            UTR / Transaction Reference
+                        </label>
+                        <input
+                            type="text"
+                            value={utr}
+                            onChange={(e) => setUtr(e.target.value.toUpperCase())}
+                            placeholder="Enter your payment UTR number"
+                            className="w-full p-3 bg-background border border-border text-text-primary text-sm font-mono focus:border-brand outline-none"
+                        />
+                        <p className="text-xs text-text-secondary mt-1">
+                            Found in your UPI app payment history. Helps verify your payment.
+                        </p>
+                    </div>
+
                     {/* Evidence Upload */}
                     <div>
                         <label className="text-xs text-text-secondary uppercase mb-2 block">
-                            Evidence (Screenshots, Receipts)
+                            Evidence (Screenshots, Receipts) - Max 3 files
                         </label>
 
-                        <label className="w-full p-4 border-2 border-dashed border-border bg-background hover:border-brand transition-colors cursor-pointer flex flex-col items-center gap-2">
+                        <label className={`w-full p-4 border-2 border-dashed bg-background transition-colors cursor-pointer flex flex-col items-center gap-2 ${
+                            evidence.length >= 3 ? 'border-border opacity-50 cursor-not-allowed' : 'border-border hover:border-brand'
+                        }`}>
                             <Upload className="w-6 h-6 text-text-secondary" />
-                            <span className="text-xs text-text-secondary">Click to upload files</span>
+                            <span className="text-xs text-text-secondary">
+                                {evidence.length >= 3 ? 'Maximum files reached' : 'Click to upload files'}
+                            </span>
                             <input
                                 type="file"
                                 multiple
                                 accept="image/*,.pdf"
                                 onChange={handleFileUpload}
+                                disabled={evidence.length >= 3}
                                 className="hidden"
                             />
                         </label>
@@ -194,9 +253,16 @@ export function DisputeModal({ orderId, orderAmount, merchantName, onSubmit, onC
                         <button
                             onClick={handleSubmit}
                             disabled={!reason || !description || isSubmitting}
-                            className="w-full bg-error text-white font-bold py-3 uppercase hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-error text-white font-bold py-3 uppercase hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            {isSubmitting ? 'Submitting...' : 'Submit Dispute'}
+                            {isSubmitting ? (
+                                <>
+                                    <Loader className="w-4 h-4 animate-spin" />
+                                    {uploadingFiles ? 'Uploading Evidence...' : 'Submitting...'}
+                                </>
+                            ) : (
+                                'Submit Dispute'
+                            )}
                         </button>
                         <button
                             onClick={onClose}
@@ -210,10 +276,10 @@ export function DisputeModal({ orderId, orderAmount, merchantName, onSubmit, onC
                     <div className="bg-brand/10 border border-brand/20 p-3">
                         <p className="text-xs font-bold text-brand mb-1">What happens next?</p>
                         <ol className="text-xs text-text-secondary space-y-1 list-decimal list-inside">
-                            <li>Your dispute is reviewed within 24 hours</li>
-                            <li>Evidence is verified</li>
-                            <li>Decision is made based on smart contract rules</li>
-                            <li>Funds are released to the appropriate party</li>
+                            <li>Your dispute is queued for immediate review</li>
+                            <li>Our team reviews evidence within 4 hours</li>
+                            <li>UTR and screenshots are verified</li>
+                            <li>Resolution is executed on-chain</li>
                         </ol>
                     </div>
                 </div>

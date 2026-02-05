@@ -54,6 +54,18 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.P2PEscrowV2__factory>;
     getContractFactory(
+      name: "P2PEscrowV3",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.P2PEscrowV3__factory>;
+    getContractFactory(
+      name: "P2PEscrowV4",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.P2PEscrowV4__factory>;
+    getContractFactory(
+      name: "P2PEscrowV5",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.P2PEscrowV5__factory>;
+    getContractFactory(
       name: "TrustScore",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.TrustScore__factory>;
@@ -109,6 +121,21 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.P2PEscrowV2>;
     getContractAt(
+      name: "P2PEscrowV3",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.P2PEscrowV3>;
+    getContractAt(
+      name: "P2PEscrowV4",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.P2PEscrowV4>;
+    getContractAt(
+      name: "P2PEscrowV5",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.P2PEscrowV5>;
+    getContractAt(
       name: "TrustScore",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -155,6 +182,18 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.P2PEscrowV2>;
     deployContract(
+      name: "P2PEscrowV3",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.P2PEscrowV3>;
+    deployContract(
+      name: "P2PEscrowV4",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.P2PEscrowV4>;
+    deployContract(
+      name: "P2PEscrowV5",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.P2PEscrowV5>;
+    deployContract(
       name: "TrustScore",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.TrustScore>;
@@ -209,6 +248,21 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.P2PEscrowV2>;
+    deployContract(
+      name: "P2PEscrowV3",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.P2PEscrowV3>;
+    deployContract(
+      name: "P2PEscrowV4",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.P2PEscrowV4>;
+    deployContract(
+      name: "P2PEscrowV5",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.P2PEscrowV5>;
     deployContract(
       name: "TrustScore",
       args: any[],

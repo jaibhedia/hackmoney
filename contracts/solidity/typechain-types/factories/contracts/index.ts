@@ -4,4 +4,7 @@
 export { DisputeDAO__factory } from "./DisputeDAO__factory";
 export { P2PEscrow__factory } from "./P2PEscrow__factory";
 export { P2PEscrowV2__factory } from "./P2PEscrowV2__factory";
+export { P2PEscrowV3__factory } from "./P2PEscrowV3__factory";
+export { P2PEscrowV4__factory } from "./P2PEscrowV4__factory";
+export { P2PEscrowV5__factory } from "./P2PEscrowV5__factory";
 export { TrustScore__factory } from "./TrustScore__factory";

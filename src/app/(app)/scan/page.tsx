@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { ChevronLeft, DollarSign, Clock, Upload, Check, Loader2, User, Camera, QrCode } from "lucide-react"
-import Link from "next/link"
+import { ChevronLeft, DollarSign, Clock, Upload, Check, Loader2, User, Camera, QrCode, Home } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { BottomNav } from "@/components/app/bottom-nav"
 import { QRScanner } from "@/components/app/qr-scanner"
 import { useWallet } from "@/hooks/useWallet"
 import { formatCurrency } from "@/lib/currency-converter"
 import { Order } from "@/app/api/orders/sse/route"
+import { useSafeNavigation } from "@/hooks/useSafeNavigation"
 
 /**
  * Scan & Pay - Amount-First Order Creation
@@ -23,6 +24,8 @@ import { Order } from "@/app/api/orders/sse/route"
 type Step = "amount" | "waiting" | "matched" | "pending" | "complete"
 
 export default function ScanPage() {
+    const router = useRouter()
+    const { goBack, goHome } = useSafeNavigation()
     const fileInputRef = useRef<HTMLInputElement>(null)
     const { isConnected, address, displayName, balance } = useWallet()
     const [mounted, setMounted] = useState(false)
@@ -203,15 +206,20 @@ export default function ScanPage() {
 
             {/* Header */}
             <div className="flex items-center justify-between mb-8 border-b border-border pb-4 border-dashed">
-                <Link href="/dashboard" className="flex items-center gap-2 text-text-secondary hover:text-brand transition-colors uppercase text-xs tracking-wider">
+                <button 
+                    onClick={goBack} 
+                    className="flex items-center gap-2 text-text-secondary hover:text-brand transition-colors uppercase text-xs tracking-wider"
+                >
                     <ChevronLeft className="w-4 h-4" />
-                    [BACK_TO_ROOT]
-                </Link>
+                    [BACK]
+                </button>
                 <div className="text-center">
                     <h1 className="text-lg font-bold uppercase text-brand">SCAN_UPLINK</h1>
                     <p className="text-[10px] text-text-secondary uppercase">PROTOCOL: P2P_REQUEST</p>
                 </div>
-                <div className="w-8"></div>
+                <button onClick={goHome} className="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-brand">
+                    <Home className="w-4 h-4" />
+                </button>
             </div>
 
             {/* User Info (Terminal Style) */}

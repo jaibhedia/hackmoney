@@ -18,6 +18,15 @@ export interface Dispute {
     reason: string
     buyerEvidence?: string
     sellerEvidence?: string
+    // MVP evidence fields
+    buyerUtr?: string
+    sellerUtr?: string
+    buyerExplanation?: string
+    sellerExplanation?: string
+    buyerScreenshots?: string[]
+    sellerScreenshots?: string[]
+    buyerEvidenceAt?: number
+    sellerEvidenceAt?: number
     arbitrators: string[]
     votes: Record<string, { favorBuyer: boolean; reasoning: string; votedAt: number }>
     votesForBuyer: number
@@ -26,6 +35,10 @@ export interface Dispute {
     createdAt: number
     votingDeadline?: number
     resolvedAt?: number
+    // Admin resolution fields
+    resolvedBy?: string
+    resolutionNotes?: string
+    slashPercentage?: number
 }
 
 export function useDisputes(userAddress: string | undefined, role: 'party' | 'arbitrator' = 'party') {

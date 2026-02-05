@@ -1,6 +1,6 @@
 "use client"
 
-import { Shield, TrendingUp, Clock, CheckCircle } from "lucide-react"
+import { Shield, TrendingUp, Clock, CheckCircle, Calendar, AlertTriangle, Zap } from "lucide-react"
 import { useReputation } from "@/hooks/useReputation"
 
 interface MerchantCardProps {
@@ -8,13 +8,14 @@ interface MerchantCardProps {
     name: string
     paymentDetails: string
     onSelect?: () => void
+    showExtendedStats?: boolean
 }
 
 /**
- * Enhanced Merchant Card with Live Reputation Display
- * Shows trust score, statistics, and verification badges
+ * Enhanced LP Card with Trust Signals
+ * Shows: trades count, avg completion time, disputes, member since, tier
  */
-export function MerchantCard({ address, name, paymentDetails, onSelect }: MerchantCardProps) {
+export function MerchantCard({ address, name, paymentDetails, onSelect, showExtendedStats = true }: MerchantCardProps) {
     const { reputation, isLoading, getTrustScoreColor, getTrustScoreLabel, formatCompletionTime } = useReputation(address)
 
     if (isLoading || !reputation) {
@@ -28,6 +29,16 @@ export function MerchantCard({ address, name, paymentDetails, onSelect }: Mercha
 
     const trustColor = getTrustScoreColor(reputation.trustScore)
     const trustLabel = getTrustScoreLabel(reputation.trustScore)
+    
+    // Calculate member since duration
+    const memberSince = reputation.memberSince || Date.now() - 30 * 24 * 60 * 60 * 1000 // Default 30 days
+    const memberDays = Math.floor((Date.now() - memberSince) / (24 * 60 * 60 * 1000))
+    const memberDuration = memberDays > 30 ? `${Math.floor(memberDays / 30)}mo` : `${memberDays}d`
+    
+    // Calculate dispute rate
+    const disputeRate = reputation.totalTrades > 0 
+        ? ((reputation.disputedTrades || 0) / reputation.totalTrades * 100).toFixed(1)
+        : "0.0"
 
     const colorClasses = {
         success: 'bg-success/20 text-success border-success/20',
@@ -46,7 +57,10 @@ export function MerchantCard({ address, name, paymentDetails, onSelect }: Mercha
                     <div className="flex items-center gap-2 mb-1">
                         <p className="font-bold text-text-primary">{name}</p>
                         {reputation.trustScore >= 95 && (
-                            <Shield className="w-4 h-4 text-brand" />
+                            <Shield className="w-4 h-4 text-brand" title="Verified LP" />
+                        )}
+                        {reputation.totalTrades >= 100 && (
+                            <Zap className="w-4 h-4 text-warning" title="Power Trader" />
                         )}
                     </div>
                     <p className="text-xs text-text-secondary font-mono">
@@ -61,34 +75,46 @@ export function MerchantCard({ address, name, paymentDetails, onSelect }: Mercha
                 </div>
             </div>
 
-            {/* Statistics Grid */}
-            <div className="grid grid-cols-3 gap-2 mb-3">
+            {/* Trust Signals Grid */}
+            <div className="grid grid-cols-4 gap-1.5 mb-3">
+                {/* Trades Count */}
                 <div className="bg-background border border-border p-2">
                     <div className="flex items-center gap-1 mb-1">
                         <CheckCircle className="w-3 h-3 text-success" />
-                        <p className="text-[10px] text-text-secondary uppercase">Trades</p>
+                        <p className="text-[8px] text-text-secondary uppercase">Trades</p>
                     </div>
                     <p className="text-sm font-bold text-text-primary">{reputation.totalTrades}</p>
                 </div>
 
+                {/* Avg Completion Time */}
                 <div className="bg-background border border-border p-2">
                     <div className="flex items-center gap-1 mb-1">
                         <Clock className="w-3 h-3 text-brand" />
-                        <p className="text-[10px] text-text-secondary uppercase">Avg Time</p>
+                        <p className="text-[8px] text-text-secondary uppercase">Avg</p>
                     </div>
                     <p className="text-sm font-bold text-text-primary">
                         {formatCompletionTime(reputation.averageCompletionTime)}
                     </p>
                 </div>
 
+                {/* Disputes */}
                 <div className="bg-background border border-border p-2">
                     <div className="flex items-center gap-1 mb-1">
-                        <TrendingUp className="w-3 h-3 text-success" />
-                        <p className="text-[10px] text-text-secondary uppercase">Success</p>
+                        <AlertTriangle className="w-3 h-3 text-warning" />
+                        <p className="text-[8px] text-text-secondary uppercase">Disputes</p>
                     </div>
-                    <p className="text-sm font-bold text-success">
-                        {((reputation.successfulTrades / reputation.totalTrades) * 100).toFixed(1)}%
+                    <p className={`text-sm font-bold ${parseFloat(disputeRate) > 5 ? 'text-warning' : 'text-success'}`}>
+                        {disputeRate}%
                     </p>
+                </div>
+
+                {/* Member Since */}
+                <div className="bg-background border border-border p-2">
+                    <div className="flex items-center gap-1 mb-1">
+                        <Calendar className="w-3 h-3 text-text-secondary" />
+                        <p className="text-[8px] text-text-secondary uppercase">Member</p>
+                    </div>
+                    <p className="text-sm font-bold text-text-primary">{memberDuration}</p>
                 </div>
             </div>
 
@@ -97,16 +123,17 @@ export function MerchantCard({ address, name, paymentDetails, onSelect }: Mercha
                 <p className="text-xs text-text-secondary">{paymentDetails}</p>
             </div>
 
-            {/* Dispute Info (if any) */}
-            {reputation.disputedTrades > 0 && (
-                <div className="text-xs text-warning">
-                    ⚠️ {reputation.disputedTrades} disputed trade{reputation.disputedTrades > 1 ? 's' : ''}
+            {/* Warning for high dispute LPs */}
+            {(reputation.disputedTrades || 0) > 2 && (
+                <div className="text-xs text-warning flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    {reputation.disputedTrades} dispute{reputation.disputedTrades > 1 ? 's' : ''} • Exercise caution
                 </div>
             )}
 
             {/* Hover indication */}
             <div className="mt-2 text-xs text-brand opacity-0 group-hover:opacity-100 transition-opacity">
-                → Select this merchant
+                → Select this LP
             </div>
         </button>
     )

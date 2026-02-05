@@ -11,6 +11,10 @@ export interface MerchantReputation {
     averageCompletionTime: number
     responseRate: number
     lastUpdated: number
+    memberSince: number        // Timestamp when LP registered
+    tier: number               // LP tier (1-5)
+    stakedAmount: number       // USDC staked
+    availableLiquidity: number // Stake minus locked in orders
 }
 
 /**

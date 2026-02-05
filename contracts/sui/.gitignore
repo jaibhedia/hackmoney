@@ -1,0 +1,8 @@
+# Build outputs
+build/
+
+# Lock file (optional - uncomment if you want to commit it)
+# Move.lock
+
+# macOS
+.DS_Store

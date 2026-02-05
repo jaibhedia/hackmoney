@@ -4,4 +4,7 @@
 export type { DisputeDAO } from "./DisputeDAO";
 export type { P2PEscrow } from "./P2PEscrow";
 export type { P2PEscrowV2 } from "./P2PEscrowV2";
+export type { P2PEscrowV3 } from "./P2PEscrowV3";
+export type { P2PEscrowV4 } from "./P2PEscrowV4";
+export type { P2PEscrowV5 } from "./P2PEscrowV5";
 export type { TrustScore } from "./TrustScore";
