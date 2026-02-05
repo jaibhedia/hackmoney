@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { ChevronLeft, DollarSign, Clock, Upload, Check, Loader2, User, Camera, QrCode, Home } from "lucide-react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { BottomNav } from "@/components/app/bottom-nav"
 import { QRScanner } from "@/components/app/qr-scanner"
 import { useWallet } from "@/hooks/useWallet"
