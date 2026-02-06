@@ -8,42 +8,39 @@ import { CONTRACT_ADDRESSES, USDC_ADDRESS } from '@/lib/web3-config'
 import { USDC_ABI, parseUsdc, formatUsdc } from '@/lib/escrow-abi'
 
 /**
- * P2PEscrowV2 Staking ABI (subset for staking functions)
+ * P2PEscrowV3 Staking ABI (subset for staking functions)
+ * V3 uses stake/unstake instead of depositStake/withdrawStake
  */
 const STAKING_ABI = [
     {
         inputs: [{ name: "amount", type: "uint256" }],
-        name: "depositStake",
+        name: "stake",
         outputs: [],
         stateMutability: "nonpayable",
         type: "function"
     },
     {
         inputs: [{ name: "amount", type: "uint256" }],
-        name: "withdrawStake",
+        name: "unstake",
         outputs: [],
         stateMutability: "nonpayable",
         type: "function"
     },
     {
-        inputs: [{ name: "user", type: "address" }],
-        name: "stakes",
+        inputs: [{ name: "", type: "address" }],
+        name: "lpStakes",
         outputs: [
-            { name: "baseStake", type: "uint256" },
-            { name: "lockedStake", type: "uint256" },
-            { name: "tradingLimit", type: "uint256" },
-            { name: "lastTradeTime", type: "uint256" },
-            { name: "completedTrades", type: "uint256" },
+            { name: "amount", type: "uint256" },
+            { name: "lockedInOrders", type: "uint256" },
+            { name: "totalTrades", type: "uint256" },
+            { name: "totalDisputes", type: "uint256" },
             { name: "disputesLost", type: "uint256" },
-            { name: "isLP", type: "bool" }
+            { name: "memberSince", type: "uint256" },
+            { name: "avgCompletionTime", type: "uint256" },
+            { name: "cooldownUntil", type: "uint256" },
+            { name: "isActive", type: "bool" },
+            { name: "isBanned", type: "bool" }
         ],
-        stateMutability: "view",
-        type: "function"
-    },
-    {
-        inputs: [],
-        name: "baseStakeBps",
-        outputs: [{ name: "", type: "uint256" }],
         stateMutability: "view",
         type: "function"
     },
@@ -51,13 +48,6 @@ const STAKING_ABI = [
         inputs: [],
         name: "usdc",
         outputs: [{ name: "", type: "address" }],
-        stateMutability: "view",
-        type: "function"
-    },
-    {
-        inputs: [],
-        name: "paused",
-        outputs: [{ name: "", type: "bool" }],
         stateMutability: "view",
         type: "function"
     }
@@ -210,28 +200,29 @@ export function useStaking() {
             // console.log('[Staking] Fetching profile for:', account.address)
             // console.log('[Staking] Contract:', escrowContract.address)
             
+            // V3 uses lpStakes mapping with 10 fields
             const result = await readContract({
                 contract: escrowContract,
-                method: "stakes",
+                method: "lpStakes",
                 params: [account.address],
-            }) as readonly [bigint, bigint, bigint, bigint, bigint, bigint, boolean]
+            }) as readonly [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint, boolean, boolean]
 
+            // LPStake struct: amount, lockedInOrders, totalTrades, totalDisputes, disputesLost, memberSince, avgCompletionTime, cooldownUntil, isActive, isBanned
             const baseStake = formatUsdc(result[0])
             const lockedStake = formatUsdc(result[1])
             const tier = getTierFromStake(baseStake)
             
-            // Contract doesn't auto-set isLP flag, derive from stake amount
-            // LP status = staked >= 50 USDC (Bronze tier minimum)
-            const contractIsLP = result[6]
-            const derivedIsLP = baseStake >= 50 || contractIsLP
+            // LP status derived from having any stake (contract tracks isActive separately)
+            const isActive = result[8]
+            const derivedIsLP = baseStake >= 50 || isActive
 
             const profile: StakeProfile = {
                 baseStake,
                 lockedStake,
                 availableStake: baseStake - lockedStake,
-                tradingLimit: formatUsdc(result[2]),
-                completedTrades: Number(result[4]),
-                disputesLost: Number(result[5]),
+                tradingLimit: baseStake, // In V3, stake = max order
+                completedTrades: Number(result[2]),
+                disputesLost: Number(result[4]),
                 isLP: derivedIsLP,
                 tier,
                 nextTier: getNextTier(tier),
@@ -328,24 +319,7 @@ export function useStaking() {
             console.log('[Staking] Escrow contract:', CONTRACT_ADDRESSES.P2P_ESCROW)
             console.log('[Staking] Amount:', amount, 'USDC (raw:', parsedAmount.toString(), ')')
 
-            // 1. Check if contract is paused
-            try {
-                const isPaused = await readContract({
-                    contract: escrowContract,
-                    method: "paused",
-                    params: [],
-                })
-                console.log('[Staking] Contract paused:', isPaused)
-                if (isPaused) {
-                    throw new Error('Contract is paused. Cannot deposit stake.')
-                }
-            } catch (e: unknown) {
-                const msg = e instanceof Error ? e.message : String(e)
-                if (msg.includes('paused')) throw e
-                console.warn('[Staking] Could not check paused state:', msg)
-            }
-
-            // 2. Check contract's USDC address matches
+            // 1. Check contract's USDC address matches
             try {
                 const contractUsdc = await readContract({
                     contract: escrowContract,
@@ -422,11 +396,11 @@ export function useStaking() {
             // 6. Small delay to ensure state propagation on Arc
             await new Promise(resolve => setTimeout(resolve, 2000))
 
-            // 7. Deposit stake
-            console.log('[Staking] Calling depositStake...')
+            // 7. Call stake function (V3 uses stake instead of depositStake)
+            console.log('[Staking] Calling stake...')
             const tx = prepareContractCall({
                 contract: escrowContract,
-                method: "depositStake",
+                method: "stake",
                 params: [parsedAmount],
             })
 
@@ -471,7 +445,7 @@ export function useStaking() {
 
             const tx = prepareContractCall({
                 contract: escrowContract,
-                method: "withdrawStake",
+                method: "unstake",
                 params: [parsedAmount],
             })
 

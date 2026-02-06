@@ -44,6 +44,7 @@ export function RouteGuard({ children }: RouteGuardProps) {
     
     const [isAuthorized, setIsAuthorized] = useState(false)
     const [isChecking, setIsChecking] = useState(true)
+    const [hasInitialized, setHasInitialized] = useState(false)
     const [lastActivity, setLastActivity] = useState(Date.now())
     const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
 
@@ -102,6 +103,14 @@ export function RouteGuard({ children }: RouteGuardProps) {
         }
     }, [address, isConnected, fetchStakeProfile])
 
+    // Give wallet time to reconnect on page load (Thirdweb needs ~1s to restore session)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setHasInitialized(true)
+        }, 1000)
+        return () => clearTimeout(timer)
+    }, [])
+
     // Main route authorization check
     useEffect(() => {
         const checkAuthorization = async () => {
@@ -114,8 +123,8 @@ export function RouteGuard({ children }: RouteGuardProps) {
                 return
             }
 
-            // Wait for wallet to finish loading
-            if (walletLoading) {
+            // Wait for wallet to finish loading AND initialization delay
+            if (walletLoading || !hasInitialized) {
                 return
             }
 
@@ -153,7 +162,7 @@ export function RouteGuard({ children }: RouteGuardProps) {
         }
 
         checkAuthorization()
-    }, [pathname, isConnected, walletLoading, stakeLoading, isLP, router])
+    }, [pathname, isConnected, walletLoading, stakeLoading, isLP, router, hasInitialized])
 
     // Prevent browser back button from going to unauthorized routes
     useEffect(() => {
@@ -183,7 +192,7 @@ export function RouteGuard({ children }: RouteGuardProps) {
     }, [isChecking, walletLoading, isAuthorized, pathname, router])
 
     // Loading state - show minimal skeleton to avoid blank flash
-    if (isChecking || walletLoading) {
+    if (isChecking || walletLoading || !hasInitialized) {
         return (
             <div className="min-h-screen bg-background" />
         )
@@ -213,8 +222,11 @@ export function RouteGuard({ children }: RouteGuardProps) {
         )
     }
 
+    // Not authorized yet - show loading instead of black screen
     if (!isAuthorized && !PUBLIC_ROUTES.includes(pathname)) {
-        return null
+        return (
+            <div className="min-h-screen bg-background" />
+        )
     }
 
     return <>{children}</>

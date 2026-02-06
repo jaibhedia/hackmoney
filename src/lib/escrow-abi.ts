@@ -1,5 +1,5 @@
 /**
- * P2P Escrow Contract ABI for Arc Chain
+ * P2P Escrow Contract ABI for Arc Chain (V3)
  * 
  * Fully decentralized escrow for P2P transactions.
  * No KYC - permissionless platform.
@@ -9,9 +9,28 @@
  * - releaseEscrow: Release USDC to recipient
  * - refundEscrow: Refund USDC to sender
  * - getEscrow: View escrow details
+ * - lpStakes: Get LP stake profile
  */
 
 export const P2P_ESCROW_ABI = [
+    {
+        "inputs": [{ "name": "", "type": "address" }],
+        "name": "lpStakes",
+        "outputs": [
+            { "name": "amount", "type": "uint256" },
+            { "name": "lockedInOrders", "type": "uint256" },
+            { "name": "totalTrades", "type": "uint256" },
+            { "name": "totalDisputes", "type": "uint256" },
+            { "name": "disputesLost", "type": "uint256" },
+            { "name": "memberSince", "type": "uint256" },
+            { "name": "avgCompletionTime", "type": "uint256" },
+            { "name": "cooldownUntil", "type": "uint256" },
+            { "name": "isActive", "type": "bool" },
+            { "name": "isBanned", "type": "bool" }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
     {
         "inputs": [
             { "name": "orderId", "type": "bytes32" },
