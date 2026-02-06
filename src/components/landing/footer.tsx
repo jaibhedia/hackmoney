@@ -10,7 +10,7 @@ export function Footer() {
             <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808005_1px,transparent_1px),linear-gradient(to_bottom,#80808005_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] z-0" />
 
             {/* Watermark */}
-            <div className="absolute bottom-0 left-0 w-full flex justify-center select-none pointer-events-none opacity-[0.03] overflow-hidden">
+            <div className="absolute bottom-0 left-0 w-full flex justify-center select-none pointer-events-none opacity-[0.05] overflow-hidden">
                 <h1 className="text-[40vw] font-black leading-none tracking-tighter text-white translate-y-[30%]">
                     uWu
                 </h1>

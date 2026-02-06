@@ -200,11 +200,12 @@ export function useEscrow() {
             const escrowContract = getEscrowContract()
             const parsedAmount = parseUsdc(amountUsdc)
             const expiresAt = BigInt(Math.floor(Date.now() / 1000) + (15 * 60)) // 15 mins from now
+            const lpAddress = merchant as `0x${string}` // LP is the merchant handling the order
 
             const tx = prepareContractCall({
                 contract: escrowContract,
                 method: "createEscrow",
-                params: [orderIdBytes, parsedAmount, merchant as `0x${string}`, expiresAt],
+                params: [orderIdBytes, parsedAmount, lpAddress, lpAddress, expiresAt],
             })
 
             const result = await sendTransaction({

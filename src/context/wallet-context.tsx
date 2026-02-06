@@ -1,9 +1,24 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react"
-import { useActiveAccount, useConnect, useDisconnect, useWalletBalance } from "thirdweb/react"
+import { useActiveAccount, useConnect, useDisconnect } from "thirdweb/react"
+import { getContract, readContract } from "thirdweb"
 import { inAppWallet } from "thirdweb/wallets"
 import { thirdwebClient, arcChain } from "@/lib/thirdweb-config"
+
+// USDC Contract Address on Arc (precompile)
+const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS || '0x3600000000000000000000000000000000000000'
+
+// USDC ABI for balance fetching
+const USDC_BALANCE_ABI = [
+    {
+        inputs: [{ name: "account", type: "address" }],
+        name: "balanceOf",
+        outputs: [{ name: "", type: "uint256" }],
+        stateMutability: "view",
+        type: "function"
+    }
+] as const
 
 /**
  * Wallet Context - PURE Thirdweb Integration
@@ -15,7 +30,7 @@ import { thirdwebClient, arcChain } from "@/lib/thirdweb-config"
  * 1. User signs up via Google/Apple/Email through Thirdweb
  * 2. Thirdweb creates an embedded wallet for them
  * 3. We use THAT wallet address (from useActiveAccount)
- * 4. Balance is fetched from Arc chain
+ * 4. Balance is fetched from USDC contract on Arc chain
  * 5. User can later register .uwu name or link existing ENS
  */
 
@@ -54,13 +69,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const account = useActiveAccount()
     const { connect: thirdwebConnect } = useConnect()
     const { disconnect: thirdwebDisconnect } = useDisconnect()
-    
-    // Real on-chain balance from Arc chain
-    const walletBalance = useWalletBalance({
-        client: thirdwebClient,
-        chain: arcChain,
-        address: account?.address,
-    })
 
     const [state, setState] = useState<WalletState>({
         address: null,
@@ -78,6 +86,32 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('uwu_ens_name')
     }, [])
 
+    // Fetch USDC balance from contract
+    const fetchUsdcBalance = useCallback(async (address: string) => {
+        try {
+            const usdcContract = getContract({
+                client: thirdwebClient,
+                chain: arcChain,
+                address: USDC_ADDRESS,
+                abi: USDC_BALANCE_ABI,
+            })
+
+            const balanceRaw = await readContract({
+                contract: usdcContract,
+                method: "balanceOf",
+                params: [address],
+            }) as bigint
+
+            // USDC has 6 decimals
+            const balance = Number(balanceRaw) / 1_000_000
+            console.log('[Wallet] USDC Balance from contract:', balance)
+            return balance
+        } catch (error) {
+            console.error('[Wallet] Failed to fetch USDC balance:', error)
+            return 0
+        }
+    }, [])
+
     // Sync with Thirdweb account - this is the ONLY place we set address
     useEffect(() => {
         if (account?.address) {
@@ -91,6 +125,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 isLoading: false,
                 isFirstTimeUser: isFirstTime,
             }))
+            
+            // Fetch balance immediately on connect
+            setState(prev => ({ ...prev, isBalanceLoading: true }))
+            fetchUsdcBalance(account.address).then(balance => {
+                setState(prev => ({ ...prev, balance, isBalanceLoading: false }))
+            })
         } else {
             console.log('[Wallet] Not connected')
             setState({
@@ -102,22 +142,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 isFirstTimeUser: false,
             })
         }
-    }, [account?.address])
-
-    // Update balance from chain - REAL balance only
-    useEffect(() => {
-        if (walletBalance.data) {
-            const bal = Number(walletBalance.data.displayValue)
-            console.log('[Wallet] Balance from chain:', bal, walletBalance.data.symbol)
-            setState(prev => ({
-                ...prev,
-                balance: bal,
-                isBalanceLoading: false,
-            }))
-        }
-        
-        setState(prev => ({ ...prev, isBalanceLoading: walletBalance.isLoading }))
-    }, [walletBalance.data, walletBalance.isLoading])
+    }, [account?.address, fetchUsdcBalance])
 
     // Connect via Thirdweb embedded wallet
     const connect = useCallback(async (method: "google" | "apple" | "email", email?: string): Promise<boolean> => {
@@ -175,9 +200,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     // Refresh balance from chain
     const refreshBalance = useCallback(async () => {
+        if (!state.address) return
         setState(prev => ({ ...prev, isBalanceLoading: true }))
-        await walletBalance.refetch()
-    }, [walletBalance])
+        const balance = await fetchUsdcBalance(state.address)
+        setState(prev => ({ ...prev, balance, isBalanceLoading: false }))
+    }, [state.address, fetchUsdcBalance])
 
     // Mark onboarding as complete for this wallet
     const markOnboardingComplete = useCallback(() => {

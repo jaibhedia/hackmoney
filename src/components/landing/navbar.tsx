@@ -8,8 +8,8 @@ import { useWallet } from "@/hooks/useWallet"
 export function Navbar() {
     const { isConnected, isFirstTimeUser } = useWallet()
     
-    // If connected, go to dashboard. Otherwise go to onboarding
-    const launchHref = isConnected ? '/dashboard' : '/onboarding'
+    // If connected, go to scan. Otherwise go to onboarding first
+    const launchHref = isConnected ? '/scan' : '/onboarding'
     const launchText = isConnected ? 'Open App' : 'Launch App'
 
     return (

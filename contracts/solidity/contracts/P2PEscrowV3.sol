@@ -2,7 +2,6 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -10,6 +9,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  * @title P2PEscrowV3
  * @notice P2P Escrow with LP Tier System and Anti-Fraud Mechanisms
  * @dev Implements stake-based order limits, 4hr dispute timeout, cooldowns
+ *      Uses raw IERC20 calls (NOT SafeERC20) for Arc USDC precompile compatibility
  * 
  * LP Tier System (Stake = Max Order):
  * - Tier 1: $50 stake  → Max order $50
@@ -26,7 +26,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  * - Small order fee (10 INR) for orders < 10 USDC
  */
 contract P2PEscrowV3 is ReentrancyGuard, Ownable {
-    using SafeERC20 for IERC20;
 
     // ============================================
     // Constants & State Variables
@@ -177,7 +176,7 @@ contract P2PEscrowV3 is ReentrancyGuard, Ownable {
         if (amount == 0) revert InvalidAmount();
         if (lpStakes[msg.sender].isBanned) revert LPBannedError();
         
-        usdc.safeTransferFrom(msg.sender, address(this), amount);
+        require(usdc.transferFrom(msg.sender, address(this), amount), "USDC transfer failed");
         
         LPStake storage lpStake = lpStakes[msg.sender];
         lpStake.amount += amount;
@@ -200,7 +199,7 @@ contract P2PEscrowV3 is ReentrancyGuard, Ownable {
         if (amount > available) revert InsufficientAvailableStake();
         
         lpStake.amount -= amount;
-        usdc.safeTransfer(msg.sender, amount);
+        require(usdc.transfer(msg.sender, amount), "USDC transfer failed");
         
         emit LPUnstaked(msg.sender, amount);
     }
@@ -314,7 +313,7 @@ contract P2PEscrowV3 is ReentrancyGuard, Ownable {
         uint256 totalAmount = amount + fee;
         
         // Transfer USDC from sender
-        usdc.safeTransferFrom(msg.sender, address(this), totalAmount);
+        require(usdc.transferFrom(msg.sender, address(this), totalAmount), "USDC transfer failed");
         
         // Lock LP's stake for this order
         lpStake.lockedInOrders += amount;
@@ -365,9 +364,9 @@ contract P2PEscrowV3 is ReentrancyGuard, Ownable {
         }
         
         // Transfer USDC
-        usdc.safeTransfer(escrow.recipient, escrow.amount);
+        require(usdc.transfer(escrow.recipient, escrow.amount), "USDC transfer failed");
         if (escrow.fee > 0) {
-            usdc.safeTransfer(owner(), escrow.fee);
+            require(usdc.transfer(owner(), escrow.fee), "USDC fee transfer failed");
         }
         
         emit EscrowReleased(orderId, escrow.recipient, escrow.amount);
@@ -398,7 +397,7 @@ contract P2PEscrowV3 is ReentrancyGuard, Ownable {
         emit CooldownApplied(msg.sender, userCooldowns[msg.sender]);
         
         // Refund
-        usdc.safeTransfer(escrow.sender, escrow.amount + escrow.fee);
+        require(usdc.transfer(escrow.sender, escrow.amount + escrow.fee), "USDC refund failed");
         
         emit EscrowRefunded(orderId, escrow.sender, escrow.amount);
         return true;
@@ -457,12 +456,12 @@ contract P2PEscrowV3 is ReentrancyGuard, Ownable {
         if (releaseToRecipient) {
             escrow.status = EscrowStatus.Released;
             escrow.completedAt = block.timestamp;
-            usdc.safeTransfer(escrow.recipient, escrow.amount);
-            usdc.safeTransfer(owner(), escrow.fee);
+            require(usdc.transfer(escrow.recipient, escrow.amount), "USDC transfer failed");
+            require(usdc.transfer(owner(), escrow.fee), "USDC fee transfer failed");
             emit DisputeResolved(orderId, escrow.recipient, escrow.amount);
         } else {
             escrow.status = EscrowStatus.Refunded;
-            usdc.safeTransfer(escrow.sender, escrow.amount + escrow.fee);
+            require(usdc.transfer(escrow.sender, escrow.amount + escrow.fee), "USDC refund failed");
             emit DisputeResolved(orderId, escrow.sender, escrow.amount);
         }
         
@@ -491,7 +490,7 @@ contract P2PEscrowV3 is ReentrancyGuard, Ownable {
         }
         
         // Transfer slashed amount to treasury
-        usdc.safeTransfer(owner(), slashAmount);
+        require(usdc.transfer(owner(), slashAmount), "Slash transfer failed");
         
         emit LPSlashed(lp, slashAmount, reason);
     }

@@ -174,15 +174,18 @@ export function RouteGuard({ children }: RouteGuardProps) {
         }
     }, [isChecking, pathname])
 
-    // Loading state
+    // Not authorized - redirect to onboarding via effect (must be above early returns for hook order)
+    useEffect(() => {
+        if (!isChecking && !walletLoading && !isAuthorized && !PUBLIC_ROUTES.includes(pathname)) {
+            sessionStorage.setItem('uwu_redirect_after_login', pathname)
+            router.replace("/onboarding")
+        }
+    }, [isChecking, walletLoading, isAuthorized, pathname, router])
+
+    // Loading state - show minimal skeleton to avoid blank flash
     if (isChecking || walletLoading) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <div className="text-center font-mono">
-                    <Loader2 className="w-8 h-8 animate-spin text-brand mx-auto mb-4" />
-                    <p className="text-text-secondary text-sm uppercase">Verifying session...</p>
-                </div>
-            </div>
+            <div className="min-h-screen bg-background" />
         )
     }
 
@@ -210,25 +213,8 @@ export function RouteGuard({ children }: RouteGuardProps) {
         )
     }
 
-    // Not authorized - prompt to login
     if (!isAuthorized && !PUBLIC_ROUTES.includes(pathname)) {
-        return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <div className="text-center font-mono p-6">
-                    <Loader2 className="w-12 h-12 text-brand mx-auto mb-4" />
-                    <h2 className="text-lg font-bold text-text-primary mb-2">Login Required</h2>
-                    <p className="text-sm text-text-secondary mb-4">
-                        Please sign in to access this page.
-                    </p>
-                    <button
-                        onClick={() => router.replace("/onboarding")}
-                        className="px-6 py-3 bg-white text-black rounded-lg font-bold hover:bg-gray-200 transition-all"
-                    >
-                        Sign In
-                    </button>
-                </div>
-            </div>
-        )
+        return null
     }
 
     return <>{children}</>

@@ -46,6 +46,20 @@ const STAKING_ABI = [
         outputs: [{ name: "", type: "uint256" }],
         stateMutability: "view",
         type: "function"
+    },
+    {
+        inputs: [],
+        name: "usdc",
+        outputs: [{ name: "", type: "address" }],
+        stateMutability: "view",
+        type: "function"
+    },
+    {
+        inputs: [],
+        name: "paused",
+        outputs: [{ name: "", type: "bool" }],
+        stateMutability: "view",
+        type: "function"
     }
 ] as const
 
@@ -205,6 +219,11 @@ export function useStaking() {
             const baseStake = formatUsdc(result[0])
             const lockedStake = formatUsdc(result[1])
             const tier = getTierFromStake(baseStake)
+            
+            // Contract doesn't auto-set isLP flag, derive from stake amount
+            // LP status = staked >= 50 USDC (Bronze tier minimum)
+            const contractIsLP = result[6]
+            const derivedIsLP = baseStake >= 50 || contractIsLP
 
             const profile: StakeProfile = {
                 baseStake,
@@ -213,7 +232,7 @@ export function useStaking() {
                 tradingLimit: formatUsdc(result[2]),
                 completedTrades: Number(result[4]),
                 disputesLost: Number(result[5]),
-                isLP: result[6],
+                isLP: derivedIsLP,
                 tier,
                 nextTier: getNextTier(tier),
                 progressToNextTier: getProgressToNextTier(baseStake, tier)
@@ -290,7 +309,7 @@ export function useStaking() {
     }
 
     /**
-     * Deposit stake
+     * Deposit stake with pre-flight checks
      */
     const depositStake = async (amount: number): Promise<boolean> => {
         if (!account) return false
@@ -299,16 +318,112 @@ export function useStaking() {
         setError(null)
 
         try {
-            // First approve
-            const approvalTx = await approveStake(amount)
-            if (!approvalTx) {
-                throw new Error('Approval failed')
-            }
-
-            // Then deposit
             const escrowContract = getEscrowContract()
+            const usdcContract = getUsdcContract()
             const parsedAmount = parseUsdc(amount)
 
+            // === PRE-FLIGHT DIAGNOSTICS ===
+            console.log('[Staking] === Pre-flight checks ===')
+            console.log('[Staking] User:', account.address)
+            console.log('[Staking] Escrow contract:', CONTRACT_ADDRESSES.P2P_ESCROW)
+            console.log('[Staking] Amount:', amount, 'USDC (raw:', parsedAmount.toString(), ')')
+
+            // 1. Check if contract is paused
+            try {
+                const isPaused = await readContract({
+                    contract: escrowContract,
+                    method: "paused",
+                    params: [],
+                })
+                console.log('[Staking] Contract paused:', isPaused)
+                if (isPaused) {
+                    throw new Error('Contract is paused. Cannot deposit stake.')
+                }
+            } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : String(e)
+                if (msg.includes('paused')) throw e
+                console.warn('[Staking] Could not check paused state:', msg)
+            }
+
+            // 2. Check contract's USDC address matches
+            try {
+                const contractUsdc = await readContract({
+                    contract: escrowContract,
+                    method: "usdc",
+                    params: [],
+                })
+                console.log('[Staking] Contract USDC address:', contractUsdc)
+                console.log('[Staking] Expected USDC address:', USDC_ADDRESS)
+                if (String(contractUsdc).toLowerCase() !== USDC_ADDRESS.toLowerCase()) {
+                    throw new Error(`Contract USDC mismatch! Contract uses ${contractUsdc}, app uses ${USDC_ADDRESS}`)
+                }
+            } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : String(e)
+                if (msg.includes('mismatch')) throw e
+                console.warn('[Staking] Could not verify USDC address:', msg)
+            }
+
+            // 3. Check user balance
+            try {
+                const balance = await readContract({
+                    contract: usdcContract,
+                    method: "balanceOf",
+                    params: [account.address],
+                }) as bigint
+                console.log('[Staking] User balance:', formatUsdc(balance), 'USDC')
+                if (balance < parsedAmount) {
+                    throw new Error(`Insufficient balance. Have ${formatUsdc(balance)} USDC, need ${amount} USDC`)
+                }
+            } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : String(e)
+                if (msg.includes('Insufficient')) throw e
+                console.warn('[Staking] Could not check balance:', msg)
+            }
+
+            // 4. Approve USDC
+            console.log('[Staking] Approving', amount, 'USDC...')
+            const approveTx = prepareContractCall({
+                contract: usdcContract,
+                method: "approve",
+                params: [CONTRACT_ADDRESSES.P2P_ESCROW, parsedAmount],
+            })
+
+            const approveResult = await sendTransaction({
+                transaction: approveTx,
+                account,
+            })
+
+            await waitForReceipt({
+                client: thirdwebClient,
+                chain: arcTestnetChain,
+                transactionHash: approveResult.transactionHash,
+            })
+            console.log('[Staking] Approval confirmed:', approveResult.transactionHash)
+
+            // 5. Verify allowance was actually set (critical for precompile chains)
+            try {
+                const allowance = await readContract({
+                    contract: usdcContract,
+                    method: "allowance",
+                    params: [account.address, CONTRACT_ADDRESSES.P2P_ESCROW],
+                }) as bigint
+                console.log('[Staking] Verified allowance:', formatUsdc(allowance), 'USDC')
+                if (allowance < parsedAmount) {
+                    console.error('[Staking] CRITICAL: Allowance not set despite confirmed approval!')
+                    console.error('[Staking] This means the USDC precompile may not support standard ERC20 approve/transferFrom')
+                    throw new Error(`Allowance verification failed. Approved ${amount} but allowance is ${formatUsdc(allowance)}. Arc USDC precompile issue.`)
+                }
+            } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : String(e)
+                if (msg.includes('Allowance verification') || msg.includes('precompile')) throw e
+                console.warn('[Staking] Could not verify allowance:', msg)
+            }
+
+            // 6. Small delay to ensure state propagation on Arc
+            await new Promise(resolve => setTimeout(resolve, 2000))
+
+            // 7. Deposit stake
+            console.log('[Staking] Calling depositStake...')
             const tx = prepareContractCall({
                 contract: escrowContract,
                 method: "depositStake",

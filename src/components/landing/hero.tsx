@@ -43,12 +43,12 @@ export function Hero() {
                             "Earn 3.5% yield as a Liquidity Provider"
                         ].map((item, i) => (
                             <div key={i} className="flex items-center gap-3">
-                                <div className="w-5 h-5 rounded-full bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
-                                    <Check className="w-3 h-3 text-purple-400" />
+                                <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center border border-green-500/20">
+                                    <Check className="w-3 h-3 text-green-400" />
                                 </div>
                                 <span className="text-gray-300 font-medium">{item}</span>
                             </div>
-                        ))}
+                        ))})
                     </div>
 
                     <Link
@@ -76,7 +76,7 @@ export function Hero() {
                             <h3 className="text-white font-bold text-xl mb-8">Scan & Pay</h3>
 
                             <div className="w-48 h-48 bg-white/10 rounded-2xl border-2 border-dashed border-white/20 flex items-center justify-center mb-6 relative overflow-hidden">
-                                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-blue-500/20 animate-pulse" />
+                                <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-500/20 animate-pulse" />
                                 <div className="w-32 h-32 bg-white p-2 rounded-lg">
                                     {/* Mock QR */}
                                     <div className="w-full h-full bg-black pattern-grid-lg opacity-80" />
@@ -85,7 +85,7 @@ export function Hero() {
                                 <motion.div
                                     animate={{ top: ["0%", "100%", "0%"] }}
                                     transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                                    className="absolute left-0 right-0 h-0.5 bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,1)]"
+                                    className="absolute left-0 right-0 h-0.5 bg-green-500 shadow-[0_0_15px_rgba(34,197,94,1)]"
                                 />
                             </div>
 
@@ -101,14 +101,14 @@ export function Hero() {
                                 </div>
                             </div>
 
-                            <button className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl text-white font-bold shadow-lg shadow-purple-500/20">
+                            <button className="w-full py-4 bg-gradient-to-r from-white to-gray-400 rounded-xl text-black font-bold shadow-lg shadow-white/20 transition-colors">
                                 Pay
                             </button>
                         </div>
                     </div>
 
                     {/* Glow Effect behind phone */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[600px] bg-blue-600/20 blur-[100px] -z-10 rounded-full pointer-events-none" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[600px] bg-green-600/20 blur-[100px] -z-10 rounded-full pointer-events-none" />
                 </motion.div>
 
             </div>

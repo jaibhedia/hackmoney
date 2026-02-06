@@ -50,10 +50,20 @@ export default function OnboardingPage() {
         setMounted(true)
     }, [])
 
-    // Redirect to dashboard if user has already completed onboarding
+    // Redirect returning users (who already completed onboarding) to their intended destination
     useEffect(() => {
         if (mounted && isConnected && !isFirstTimeUser) {
-            router.replace('/dashboard')
+            // Check if there's a stored redirect destination
+            const redirectTo = typeof window !== 'undefined' 
+                ? sessionStorage.getItem('uwu_redirect_after_login') 
+                : null
+            
+            if (redirectTo) {
+                sessionStorage.removeItem('uwu_redirect_after_login')
+                router.replace(redirectTo)
+            } else {
+                router.replace('/dashboard')
+            }
         }
     }, [mounted, isConnected, isFirstTimeUser, router])
 
@@ -113,14 +123,8 @@ export default function OnboardingPage() {
             </div>
 
             <div className="relative z-10 max-w-md mx-auto px-4 pt-14 pb-8 min-h-screen flex flex-col">
-                {/* Logo */}
+                {/* Header */}
                 <div className="text-center mb-6">
-                    <div className="inline-flex items-center gap-2 mb-3">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                            <span className="text-white font-bold text-sm">uw</span>
-                        </div>
-                        <span className="text-xl font-bold">uWu</span>
-                    </div>
                     <h1 className="text-2xl font-bold mb-1">Get Started</h1>
                     <p className="text-gray-400 text-sm">Complete these steps to start trading</p>
                 </div>
@@ -134,7 +138,7 @@ export default function OnboardingPage() {
                                     currentStep > step.id 
                                         ? 'bg-green-500' 
                                         : currentStep === step.id 
-                                            ? 'bg-purple-500' 
+                                            ? 'bg-green-500' 
                                             : 'bg-white/10'
                                 }`}
                             >
@@ -165,8 +169,8 @@ export default function OnboardingPage() {
                                 exit={{ opacity: 0, y: -20 }}
                                 className="text-center flex-1 flex flex-col"
                             >
-                                <div className="w-16 h-16 rounded-xl bg-purple-500/20 flex items-center justify-center mx-auto mb-4">
-                                    <Wallet className="w-8 h-8 text-purple-400" />
+                                <div className="w-16 h-16 rounded-xl bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+                                    <Wallet className="w-8 h-8 text-green-400" />
                                 </div>
                                 
                                 <h2 className="text-xl font-bold mb-2">Connect Your Wallet</h2>

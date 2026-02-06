@@ -17,10 +17,11 @@ export const P2P_ESCROW_ABI = [
             { "name": "orderId", "type": "bytes32" },
             { "name": "amount", "type": "uint256" },
             { "name": "recipient", "type": "address" },
+            { "name": "lp", "type": "address" },
             { "name": "expiresAt", "type": "uint256" }
         ],
         "name": "createEscrow",
-        "outputs": [{ "name": "escrowId", "type": "bytes32" }],
+        "outputs": [{ "name": "", "type": "bytes32" }],
         "stateMutability": "nonpayable",
         "type": "function"
     },
@@ -170,9 +171,10 @@ export function orderIdToBytes32(orderId: string): `0x${string}` {
 
 /**
  * Parse USDC amount (6 decimals)
+ * Uses Math.round to avoid floating-point precision loss
  */
 export function parseUsdc(amount: number): bigint {
-    return BigInt(Math.floor(amount * 1_000_000))
+    return BigInt(Math.round(amount * 1_000_000))
 }
 
 /**

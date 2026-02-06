@@ -176,20 +176,12 @@ export default function ScanPage() {
     }
 
     if (!isConnected) {
+        // Route guard handles redirect, this is just a fallback loading state
         return (
-            <div className="pb-24 pt-6 px-4 max-w-md mx-auto min-h-screen">
-                <div className="bg-black border-2 border-brand/50 p-8 text-center mt-12 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-2 opacity-30 text-[10px] uppercase text-brand">ACCESS_DENIED</div>
-                    <QrCode className="w-16 h-16 text-brand mx-auto mb-6 opacity-80" />
-                    <h2 className="text-xl font-bold mb-2 uppercase text-white tracking-widest">LOGIN_REQUIRED</h2>
-                    <p className="text-sm text-text-secondary font-mono mb-6 max-w-xs mx-auto">
-                        {">"} CONNECT_WALLET_TO_INITIATE_SCAN<br />
-                        {">"} P2P_UPLINK_OFFLINE
-                    </p>
-                    <Link href="/dashboard" className="inline-block w-full py-4 bg-brand text-black font-bold uppercase tracking-wider hover:bg-brand-hover relative overflow-hidden">
-                        [ AUTHENTICATE_NOW ]
-                        <div className="absolute inset-0 bg-white/20 translate-x-[-100%] hover:translate-x-0 transition-transform duration-300" />
-                    </Link>
+            <div className="pb-24 pt-6 px-4 max-w-md mx-auto min-h-screen flex items-center justify-center">
+                <div className="text-center font-mono">
+                    <Loader2 className="w-8 h-8 animate-spin text-brand mx-auto mb-4" />
+                    <p className="text-text-secondary text-sm uppercase">Loading...</p>
                 </div>
             </div>
         )
