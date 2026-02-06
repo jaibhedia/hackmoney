@@ -48,7 +48,7 @@ export function Hero() {
                                 </div>
                                 <span className="text-gray-300 font-medium">{item}</span>
                             </div>
-                        ))})
+                        ))}
                     </div>
 
                     <Link
