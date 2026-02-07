@@ -71,6 +71,7 @@ export default function BuyPage() {
     const isLP = stakeProfile?.isLP && stakeProfile.baseStake > 0
     const currentTierConfig = TIER_CONFIG.find(t => t.name === (stakeProfile?.tier || 'Starter')) || TIER_CONFIG[0]
     const maxOrderUsdc = isLP ? currentTierConfig.maxOrder : (limitData?.maxOrder || 150)
+    const usdcAmount = amount !== "0" ? fiatToUsdc(parseFloat(amount), "INR") : 0
     const orderExceedsTierLimit = usdcAmount > maxOrderUsdc
 
     useEffect(() => {
@@ -94,7 +95,6 @@ export default function BuyPage() {
         return () => clearInterval(timer)
     }, [step])
 
-    const usdcAmount = amount !== "0" ? fiatToUsdc(parseFloat(amount), "INR") : 0
     const formattedCountdown = `${Math.floor(countdown / 60)}:${(countdown % 60).toString().padStart(2, "0")}`
 
     const handleContinue = () => {
