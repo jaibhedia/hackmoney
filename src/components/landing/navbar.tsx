@@ -23,7 +23,7 @@ export function Navbar() {
                     Scan & Pay
                 </Link>
                 <Link href="#lp-stake" className="px-4 py-2 rounded-full border border-transparent hover:border-white/10 hover:bg-white/5 hover:text-white transition-all">
-                    Become LP
+                    Liquidity Providers
                 </Link>
                 <Link href="#dao" className="px-4 py-2 rounded-full border border-transparent hover:border-white/10 hover:bg-white/5 hover:text-white transition-all">
                     DAO

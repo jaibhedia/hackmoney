@@ -3,6 +3,7 @@ import { broadcastOrder, broadcastOrderUpdate, orders as orderStore, Order } fro
 import { storeOrderToSui, updateOrderOnSui, createOrderActivityLog } from "@/lib/sui-storage"
 import { createPublicClient, http, formatUnits } from "viem"
 import { CONTRACT_ADDRESSES, USDC_ADDRESS } from "@/lib/web3-config"
+import { createValidationTask } from "../validations/route"
 
 /**
  * Orders API with Sui Integration
@@ -224,6 +225,8 @@ export async function GET(request: NextRequest) {
             orderStore.set(order.id, order)
             broadcastOrderUpdate(order, "expired")
         }
+        
+        // DAO validation handles verifying orders now — no auto-complete
     })
 
     // Sort by createdAt descending
@@ -274,12 +277,7 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             )
         }
-        if (amountUsdc < 10) {
-            return NextResponse.json(
-                { success: false, error: "Order below minimum of 10 USDC" },
-                { status: 400 }
-            )
-        }
+        // No minimum - orders under $10 USDC incur $0.125 fee
         if (!fiatCurrency || !paymentMethod) {
             return NextResponse.json(
                 { success: false, error: "Missing fiatCurrency or paymentMethod" },
@@ -418,26 +416,42 @@ export async function PATCH(request: NextRequest) {
 
             case "payment_sent":
                 // Solver has sent fiat payment with proof
-                // Allow if status is matched OR payment_pending (user uploaded QR)
+                // DAO VALIDATION: order goes to "verifying" → validators review → then completed
                 if (order.status !== "matched" && order.status !== "payment_pending") {
                     return NextResponse.json(
                         { success: false, error: "Order not in matched or payment_pending state" },
                         { status: 400 }
                     )
                 }
-                order.status = "payment_sent"
+                
+                // Enter verifying state — DAO validators will review
+                order.status = "verifying"
                 order.paymentSentAt = Date.now()
-                order.disputePeriodEndsAt = Date.now() + 24 * 60 * 60 * 1000 // 24 hours
+                
                 if (lpPaymentProof) {
                     order.lpPaymentProof = lpPaymentProof
                 }
+
+                // Create validation task for DAO review
+                createValidationTask({
+                    id: order.id,
+                    qrImage: order.qrImage,
+                    userAddress: order.userAddress,
+                    lpPaymentProof: order.lpPaymentProof,
+                    solverAddress: order.solverAddress,
+                    amountUsdc: order.amountUsdc,
+                    amountFiat: order.amountFiat || 0,
+                    fiatCurrency: order.fiatCurrency || 'INR',
+                    paymentMethod: order.paymentMethod || 'UPI',
+                })
                 break
 
             case "complete":
                 // User confirms payment received, USDC released
-                if (order.status !== "payment_sent") {
+                // Can also be triggered by DAO validation
+                if (order.status !== "payment_sent" && order.status !== "verifying") {
                     return NextResponse.json(
-                        { success: false, error: "Payment not marked as sent" },
+                        { success: false, error: "Payment not in payment_sent or verifying state" },
                         { status: 400 }
                     )
                 }
@@ -447,13 +461,18 @@ export async function PATCH(request: NextRequest) {
 
             case "dispute":
                 // Either party raises a dispute
-                if (!["matched", "payment_sent", "payment_pending"].includes(order.status)) {
+                // Allow disputes on completed orders within 24hr window
+                const canDispute = ["matched", "payment_sent", "payment_pending", "verifying"].includes(order.status) ||
+                    (order.status === "completed" && order.disputePeriodEndsAt && order.disputePeriodEndsAt > Date.now())
+                
+                if (!canDispute) {
                     return NextResponse.json(
-                        { success: false, error: "Cannot dispute this order" },
+                        { success: false, error: "Cannot dispute this order - dispute window has closed" },
                         { status: 400 }
                     )
                 }
                 order.status = "disputed"
+                console.log(`[Orders] Order ${order.id} disputed — will appear in admin panel for review`)
                 break
 
             case "cancel":
@@ -519,4 +538,38 @@ export async function PATCH(request: NextRequest) {
             { status: 500 }
         )
     }
+}
+
+/**
+ * DELETE /api/orders
+ * 
+ * Clear orders for a user (for development/testing)
+ */
+export async function DELETE(request: NextRequest) {
+    const { searchParams } = new URL(request.url)
+    const userId = searchParams.get("userId")
+
+    if (!userId) {
+        return NextResponse.json(
+            { success: false, error: "Missing userId" },
+            { status: 400 }
+        )
+    }
+
+    // Delete all orders for this user
+    let deleted = 0
+    orderStore.forEach((order, id) => {
+        if (order.userId === userId || order.solverId === userId) {
+            orderStore.delete(id)
+            deleted++
+        }
+    })
+
+    console.log(`[Orders] Deleted ${deleted} orders for user ${userId}`)
+
+    return NextResponse.json({
+        success: true,
+        deleted,
+        message: `Deleted ${deleted} orders`,
+    })
 }

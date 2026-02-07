@@ -7,7 +7,7 @@ import {
     DollarSign, Clock, Users, TrendingUp, Percent, Home
 } from "lucide-react"
 import { useWallet } from "@/hooks/useWallet"
-import { useStaking, TIER_CONFIG } from "@/hooks/useStaking"
+import { useStaking, LP_TIER_CONFIG } from "@/hooks/useStaking"
 import { useTrustScore } from "@/hooks/useTrustScore"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -89,7 +89,7 @@ export default function LPRegisterPage() {
 
     const currentStake = stakeProfile?.baseStake || 0
     const hasMinStake = currentStake >= MIN_LP_STAKE
-    const trustScore = trustData?.score || 50
+    const trustScore = trustData?.score || 0
     
     // LPs can bootstrap trust via stake:
     // - 50+ USDC stake = Trust score treated as 70 (Bronze LP)
@@ -419,9 +419,9 @@ export default function LPRegisterPage() {
                                             With {parseFloat(stakeAmount) + currentStake} USDC stake:
                                         </p>
                                         <p className="font-bold text-brand">
-                                            {TIER_CONFIG.find(t => 
+                                            {LP_TIER_CONFIG.find(t => 
                                                 (parseFloat(stakeAmount) + currentStake) >= t.stakeRequired
-                                            )?.name || 'Starter'} Tier
+                                            )?.name || 'Bronze'} Tier
                                         </p>
                                     </div>
                                 )}

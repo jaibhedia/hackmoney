@@ -29,8 +29,8 @@ const LP_ROUTES = ["/solver", "/lp"]
 // Routes that regular users can't access if they're LPs
 const USER_ONLY_ROUTES: string[] = [] // All routes accessible to everyone
 
-// Session timeout (15 minutes of inactivity)
-const SESSION_TIMEOUT_MS = 15 * 60 * 1000
+// Session timeout (1 hour of inactivity - more lenient for development)
+const SESSION_TIMEOUT_MS = 60 * 60 * 1000
 
 interface RouteGuardProps {
     children: React.ReactNode
@@ -45,17 +45,49 @@ export function RouteGuard({ children }: RouteGuardProps) {
     const [isAuthorized, setIsAuthorized] = useState(false)
     const [isChecking, setIsChecking] = useState(true)
     const [hasInitialized, setHasInitialized] = useState(false)
-    const [lastActivity, setLastActivity] = useState(Date.now())
+    const [checkingTimeout, setCheckingTimeout] = useState(false)
+    const [lastActivity, setLastActivity] = useState(() => {
+        // Initialize from localStorage if available (persists across fast refresh)
+        if (typeof window !== 'undefined') {
+            const stored = sessionStorage.getItem('uwu_last_activity')
+            if (stored) {
+                const parsed = parseInt(stored, 10)
+                // Only use stored value if it's less than 5 minutes old
+                if (Date.now() - parsed < 5 * 60 * 1000) {
+                    return parsed
+                }
+            }
+        }
+        return Date.now()
+    })
     const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
 
     const isLP = stakeProfile?.isLP ?? false
     // Arbitrator status used for UI only, not route blocking
     // const isArbitrator = stakeProfile?.tier === 'Gold' || stakeProfile?.tier === 'Diamond'
 
+    // Safety timeout - if checking takes more than 3s, allow access anyway
+    useEffect(() => {
+        if (isChecking && !PUBLIC_ROUTES.includes(pathname)) {
+            const timeout = setTimeout(() => {
+                console.log("[RouteGuard] Checking timeout - allowing access")
+                setCheckingTimeout(true)
+                setIsAuthorized(true)
+                setIsChecking(false)
+            }, 3000)
+            return () => clearTimeout(timeout)
+        }
+    }, [isChecking, pathname])
+
     // Reset activity timer on user interaction
     const resetActivityTimer = useCallback(() => {
-        setLastActivity(Date.now())
+        const now = Date.now()
+        setLastActivity(now)
         setShowTimeoutWarning(false)
+        // Persist to sessionStorage for fast refresh survival
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem('uwu_last_activity', now.toString())
+        }
     }, [])
 
     // Check session timeout
@@ -137,13 +169,16 @@ export function RouteGuard({ children }: RouteGuardProps) {
                 return
             }
 
-            // Wait for stake profile to load
-            if (stakeLoading) {
-                return
-            }
-
-            // Check LP routes (solver and lp dashboard only - not register)
-            if (LP_ROUTES.some(route => pathname === route || (pathname.startsWith(route + "/") && !pathname.startsWith("/lp/register")))) {
+            // Only wait for stake profile on LP routes
+            const isLPRoute = LP_ROUTES.some(route => pathname === route || (pathname.startsWith(route + "/") && !pathname.startsWith("/lp/register")))
+            
+            if (isLPRoute) {
+                // Wait for stake profile to load for LP routes
+                if (stakeLoading) {
+                    return
+                }
+                
+                // Check LP access
                 if (!isLP) {
                     console.log("[RouteGuard] Non-LP trying to access LP route - redirecting to register")
                     router.replace("/lp/register")

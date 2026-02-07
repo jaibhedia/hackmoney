@@ -86,7 +86,9 @@ export const PLATFORM_CONFIG = {
     MERCHANT_MIN_STAKE: 500, // Minimum USDC to stake as merchant
     MERCHANT_FEE_PERCENTAGE: 2, // 2% fee for merchants
     ORDER_TIMEOUT_MINUTES: 15, // Order expires after 15 minutes
-    MIN_TRANSACTION_AMOUNT: 10, // Minimum transaction amount in USDC
+    MIN_TRANSACTION_AMOUNT: 0, // No minimum - fee applies below $10 USDC
+    SMALL_ORDER_FEE: 0.125, // $0.125 fee for orders < $10 USDC
+    SMALL_ORDER_THRESHOLD: 10, // Orders below this get small order fee
     MAX_TRANSACTION_AMOUNT: 10000, // Maximum transaction amount in USDC
 } as const
 

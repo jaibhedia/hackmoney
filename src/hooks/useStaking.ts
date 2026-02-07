@@ -55,53 +55,83 @@ const STAKING_ABI = [
 
 /**
  * Tier configuration matching the architecture
+ * Starter is for regular users, LPs must be Bronze or higher
  */
 export type Tier = 'Starter' | 'Bronze' | 'Silver' | 'Gold' | 'Diamond'
+export type LPTier = 'Bronze' | 'Silver' | 'Gold' | 'Diamond'  // LPs can't be Starter
 
 export interface TierConfig {
     name: Tier
     stakeRequired: number  // USDC
-    orderLimit: number     // INR
+    maxOrder: number       // USDC (stake = max order for LPs)
+    rewardPercent: number  // LP reward percentage
     color: string
     features: string[]
 }
 
-export const TIER_CONFIG: TierConfig[] = [
-    {
-        name: 'Starter',
-        stakeRequired: 0,
-        orderLimit: 5000,
-        color: 'gray',
-        features: ['Basic trades only']
-    },
+// LP TIER CONFIG - stake = max order, no Starter
+export const LP_TIER_CONFIG: TierConfig[] = [
     {
         name: 'Bronze',
         stakeRequired: 50,
-        orderLimit: 25000,
+        maxOrder: 50,
+        rewardPercent: 2.0,
         color: 'orange',
-        features: ['Priority matching']
+        features: ['Priority matching', 'LP eligible']
     },
     {
         name: 'Silver',
         stakeRequired: 200,
-        orderLimit: 100000,
+        maxOrder: 200,
+        rewardPercent: 2.5,
         color: 'slate',
-        features: ['Priority matching', 'Lower fees']
+        features: ['Priority matching', 'Lower fees', 'LP eligible']
     },
     {
         name: 'Gold',
         stakeRequired: 500,
-        orderLimit: 500000,
+        maxOrder: 500,
+        rewardPercent: 3.0,
         color: 'yellow',
-        features: ['Priority matching', 'Lower fees', 'LP access']
+        features: ['Priority matching', 'Lower fees', 'LP access', 'Premium support']
     },
     {
         name: 'Diamond',
         stakeRequired: 2000,
-        orderLimit: Infinity,
+        maxOrder: 2000,
+        rewardPercent: 3.5,
         color: 'blue',
-        features: ['Priority matching', 'Lower fees', 'LP access', 'API access', 'Unlimited']
+        features: ['All Gold benefits', 'API access', 'Highest rewards']
     }
+]
+
+// USER TIER CONFIG - Progressive limits based on usage, capped at $500
+// Users start at $150 limit and progress based on completed trades
+export interface UserTierConfig {
+    name: string
+    minTrades: number     // Trades required to reach this tier
+    maxOrder: number      // USDC limit
+    color: string
+}
+
+export const USER_TIER_CONFIG: UserTierConfig[] = [
+    { name: 'New', minTrades: 0, maxOrder: 150, color: 'gray' },
+    { name: 'Regular', minTrades: 5, maxOrder: 250, color: 'blue' },
+    { name: 'Trusted', minTrades: 15, maxOrder: 350, color: 'green' },
+    { name: 'Verified', minTrades: 50, maxOrder: 500, color: 'purple' },  // Max cap
+]
+
+// Legacy TIER_CONFIG for backward compatibility (used in some UI)
+export const TIER_CONFIG: TierConfig[] = [
+    {
+        name: 'Starter',
+        stakeRequired: 0,
+        maxOrder: 150,  // User default
+        rewardPercent: 0,
+        color: 'gray',
+        features: ['Basic trades only', '$150 limit']
+    },
+    ...LP_TIER_CONFIG
 ]
 
 export interface StakeProfile {
@@ -110,7 +140,9 @@ export interface StakeProfile {
     availableStake: number
     tradingLimit: number
     completedTrades: number
+    totalDisputes: number
     disputesLost: number
+    memberSince: number  // timestamp
     isLP: boolean
     tier: Tier
     nextTier: Tier | null
@@ -222,7 +254,9 @@ export function useStaking() {
                 availableStake: baseStake - lockedStake,
                 tradingLimit: baseStake, // In V3, stake = max order
                 completedTrades: Number(result[2]),
+                totalDisputes: Number(result[3]),
                 disputesLost: Number(result[4]),
+                memberSince: Number(result[5]) * 1000, // Convert to ms
                 isLP: derivedIsLP,
                 tier,
                 nextTier: getNextTier(tier),
@@ -234,10 +268,20 @@ export function useStaking() {
         } catch (err) {
             // "execution reverted" is expected for new users without stake profiles
             // or when contract is not deployed - handle silently
-            const errorMessage = err instanceof Error ? err.message : String(err)
+            let errorMessage: string
+            if (err instanceof Error) {
+                errorMessage = err.message
+            } else if (typeof err === 'object' && err !== null) {
+                // Handle thirdweb error objects
+                errorMessage = JSON.stringify(err)
+            } else {
+                errorMessage = String(err)
+            }
+            
             const isExpectedError = errorMessage.includes('execution reverted') || 
                                    errorMessage.includes('call revert exception') ||
-                                   errorMessage.includes('could not decode result')
+                                   errorMessage.includes('could not decode result') ||
+                                   errorMessage.includes('missing revert data')
             
             if (!isExpectedError) {
                 console.warn('[Staking] Unexpected error fetching profile:', errorMessage)
@@ -250,7 +294,9 @@ export function useStaking() {
                 availableStake: 0,
                 tradingLimit: 5000,
                 completedTrades: 0,
+                totalDisputes: 0,
                 disputesLost: 0,
+                memberSince: 0,
                 isLP: false,
                 tier: 'Starter',
                 nextTier: 'Bronze',

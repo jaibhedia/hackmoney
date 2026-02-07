@@ -170,7 +170,7 @@ export function useTrustScore(userAddress?: string) {
             
             // Return default data for new users
             const defaultData: TrustScoreData = {
-                score: 50,
+                score: 0,
                 completedTrades: 0,
                 totalVolume: 0,
                 successfulReleases: 0,

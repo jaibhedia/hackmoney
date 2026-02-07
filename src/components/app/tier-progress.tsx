@@ -57,7 +57,7 @@ export function TierProgress({ showUpgradePrompt = true, compact = false }: Tier
                             {currentTier}
                         </span>
                         <span className="text-xs text-text-secondary">
-                            Limit: ₹{currentConfig.orderLimit === Infinity ? '∞' : currentConfig.orderLimit.toLocaleString()}
+                            Max: ${currentConfig.maxOrder} USDC
                         </span>
                     </div>
                     {nextTier && (
@@ -103,9 +103,9 @@ export function TierProgress({ showUpgradePrompt = true, compact = false }: Tier
             {/* Order Limits */}
             <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 bg-muted rounded-lg">
-                    <p className="text-xs text-text-secondary mb-1">Order Limit</p>
+                    <p className="text-xs text-text-secondary mb-1">Max Order</p>
                     <p className="font-bold font-mono">
-                        ₹{currentConfig.orderLimit === Infinity ? '∞' : currentConfig.orderLimit.toLocaleString()}
+                        ${currentConfig.maxOrder} USDC
                     </p>
                 </div>
                 <div className="p-3 bg-muted rounded-lg">
@@ -191,17 +191,17 @@ export function TierIndicator({ tier }: { tier?: Tier }) {
  * Order limit check component
  */
 export function OrderLimitCheck({ 
-    amountInr, 
+    amountUsdc, 
     onLimitExceeded 
 }: { 
-    amountInr: number
+    amountUsdc: number
     onLimitExceeded?: () => void 
 }) {
     const { stakeProfile, getTierConfig } = useStaking()
     
     const currentTier = stakeProfile?.tier || 'Starter'
     const currentConfig = getTierConfig(currentTier)
-    const isOverLimit = amountInr > currentConfig.orderLimit
+    const isOverLimit = amountUsdc > currentConfig.maxOrder
 
     if (!isOverLimit) return null
 
@@ -212,7 +212,7 @@ export function OrderLimitCheck({
                 <div>
                     <p className="text-sm font-bold text-error">Order exceeds limit</p>
                     <p className="text-xs text-text-secondary mt-1">
-                        Your {currentTier} tier limit is ₹{currentConfig.orderLimit.toLocaleString()}.
+                        Your {currentTier} tier limit is ${currentConfig.maxOrder} USDC.
                         {stakeProfile?.nextTier && (
                             <> Upgrade to {stakeProfile.nextTier} for higher limits.</>
                         )}

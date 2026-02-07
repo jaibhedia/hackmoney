@@ -1,90 +1,180 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { 
-    ChevronLeft, Scale, Users, Vote, Shield, Clock, CheckCircle, 
-    XCircle, AlertTriangle, Award, TrendingUp, Eye, ThumbsUp, ThumbsDown,
-    FileText, ExternalLink, Loader2, Coins
+import {
+    ChevronLeft, Shield, Clock, CheckCircle, XCircle, AlertTriangle,
+    Award, Eye, ThumbsUp, ThumbsDown, Loader2, Coins, DollarSign,
+    ImageIcon, RefreshCw, Flag, ArrowRight, Zap
 } from "lucide-react"
 import { useWallet } from "@/hooks/useWallet"
-import { useDisputes, type Dispute } from "@/hooks/useDisputes"
+import { useStaking } from "@/hooks/useStaking"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { WalletConnect } from "@/components/app/wallet-connect"
 
 /**
- * DAO Dispute Resolution Page
+ * Validator Dashboard — DAO Validation Page
  * 
- * Fully decentralized - disputes resolved on-chain via DisputeDAO.sol
- * 
- * Features:
- * - View all community disputes (from blockchain)
- * - Vote on disputes as arbitrator (on-chain voting)
- * - Track dispute outcomes
- * - View arbitrator leaderboard (from contract state)
+ * Open pool: ALL Gold+ stakers see ALL pending validations.
+ * Race to review — first 3 votes resolve the task.
+ * Majority approve → LP gets paid. Majority flag → escalated to admin.
+ * Validators earn $0.05 USDC per review.
  */
 
-// Stats fetched from DisputeDAO contract
-const DAO_STATS = {
-    totalDisputes: 0,
-    activeDisputes: 0,
-    resolvedDisputes: 0,
-    activeArbitrators: 0,
-    resolutionRate: 0,
-    averageResolutionTime: "N/A"
+interface ValidationTask {
+    id: string
+    orderId: string
+    status: 'pending' | 'approved' | 'flagged' | 'escalated' | 'auto_approved'
+    evidence: {
+        userQrImage?: string
+        userAddress: string
+        lpScreenshot?: string
+        lpAddress: string
+        amountUsdc: number
+        amountFiat: number
+        fiatCurrency: string
+        paymentMethod: string
+    }
+    votes: { validator: string; decision: string; notes?: string; votedAt: number }[]
+    threshold: number
+    createdAt: number
+    deadline: number
+    resolvedAt?: number
+    resolvedBy?: string
+    myVote?: string | null
+    votesCount: number
+    approvesCount: number
+    flagsCount: number
 }
 
-// Arbitrator leaderboard from on-chain data
-const TOP_ARBITRATORS: { address: string; votes: number; accuracy: number; rewards: number }[] = []
+interface ValidatorProfile {
+    address: string
+    totalReviews: number
+    totalEarned: number
+    approvals: number
+    flags: number
+    accuracy: number
+    lastReviewAt?: number
+}
 
-export default function DAOPage() {
+interface ValidationConfig {
+    threshold: number
+    rewardPerReview: number
+    timeoutMs: number
+}
+
+export default function ValidatorDashboard() {
     const { isConnected, address } = useWallet()
-    const { 
-        disputes, 
-        fetchDisputes, 
-        voteOnDispute, 
-        hasVoted,
-        isArbitrator,
-        isLoading 
-    } = useDisputes(address ?? undefined, 'arbitrator')
-    
+    const { stakeProfile } = useStaking()
+
     const [mounted, setMounted] = useState(false)
-    const [selectedDispute, setSelectedDispute] = useState<Dispute | null>(null)
-    const [voteReasoning, setVoteReasoning] = useState("")
+    const [validations, setValidations] = useState<ValidationTask[]>([])
+    const [profile, setProfile] = useState<ValidatorProfile | null>(null)
+    const [config, setConfig] = useState<ValidationConfig>({ threshold: 3, rewardPerReview: 0.05, timeoutMs: 3600000 })
+    const [isLoading, setIsLoading] = useState(true)
+    const [selectedTask, setSelectedTask] = useState<ValidationTask | null>(null)
+    const [fullEvidence, setFullEvidence] = useState<ValidationTask | null>(null)
     const [isVoting, setIsVoting] = useState(false)
-    const [activeTab, setActiveTab] = useState("disputes")
+    const [notes, setNotes] = useState("")
+    const [showResolved, setShowResolved] = useState(false)
+    const [tab, setTab] = useState<'queue' | 'earnings'>('queue')
+
+    // DAO validators from env — bypass Gold+ requirement
+    const TEST_VALIDATORS = (process.env.NEXT_PUBLIC_DAO_VALIDATORS || '').split(',').map(a => a.trim().toLowerCase()).filter(Boolean)
+    const isTestValidator = address ? TEST_VALIDATORS.includes(address.toLowerCase()) : false
+
+    // Check if user qualifies as validator (Gold+ tier OR test validator)
+    const isGoldPlus = isTestValidator || (stakeProfile && (stakeProfile.tier === 'Gold' || stakeProfile.tier === 'Diamond'))
 
     useEffect(() => {
         setMounted(true)
-        if (address) {
-            fetchDisputes()
+    }, [])
+
+    // Fetch validations
+    const fetchValidations = useCallback(async () => {
+        if (!address) return
+        setIsLoading(true)
+        try {
+            const params = new URLSearchParams({
+                address,
+                ...(showResolved && { resolved: 'true' })
+            })
+            const res = await fetch(`/api/validations?${params}`)
+            const data = await res.json()
+            if (data.success) {
+                setValidations(data.validations || [])
+                setProfile(data.profile || null)
+                setConfig(data.config)
+            }
+        } catch (err) {
+            console.error('Failed to fetch validations:', err)
+        } finally {
+            setIsLoading(false)
         }
-    }, [address, fetchDisputes])
+    }, [address, showResolved])
 
-    // Check if user is an arbitrator for any dispute
-    const userIsArbitrator = disputes.some(d => isArbitrator(d))
-
-    const handleVote = async (favorBuyer: boolean) => {
-        if (!selectedDispute || !voteReasoning.trim()) return
-
-        setIsVoting(true)
-        const success = await voteOnDispute(selectedDispute.id, favorBuyer, voteReasoning)
-
-        if (success) {
-            setSelectedDispute(null)
-            setVoteReasoning("")
+    useEffect(() => {
+        if (address && isGoldPlus) {
+            fetchValidations()
+            const interval = setInterval(fetchValidations, 10000)
+            return () => clearInterval(interval)
         }
-        setIsVoting(false)
+    }, [address, isGoldPlus, fetchValidations])
+
+    // Fetch full evidence for selected task
+    const loadFullEvidence = async (taskId: string) => {
+        try {
+            const res = await fetch('/api/validations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'get_detail', taskId })
+            })
+            const data = await res.json()
+            if (data.success) {
+                setFullEvidence(data.validation)
+            }
+        } catch (err) {
+            console.error('Failed to load evidence:', err)
+        }
     }
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'voting': return 'bg-yellow-500/20 text-yellow-400'
-            case 'resolved': return 'bg-green-500/20 text-green-400'
-            case 'pending': return 'bg-blue-500/20 text-blue-400'
-            default: return 'bg-gray-500/20 text-gray-400'
+    // Submit vote
+    const submitVote = async (decision: 'approve' | 'flag') => {
+        if (!selectedTask || !address) return
+        setIsVoting(true)
+        try {
+            const res = await fetch('/api/validations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    taskId: selectedTask.id,
+                    validator: address,
+                    decision,
+                    notes: notes.trim() || undefined,
+                })
+            })
+            const data = await res.json()
+            if (data.success) {
+                setSelectedTask(null)
+                setFullEvidence(null)
+                setNotes("")
+                fetchValidations()
+            } else {
+                alert(data.error || 'Vote failed')
+            }
+        } catch (err) {
+            console.error('Vote failed:', err)
+            alert('Network error')
+        } finally {
+            setIsVoting(false)
         }
+    }
+
+    // Open review modal
+    const openReview = (task: ValidationTask) => {
+        setSelectedTask(task)
+        setNotes("")
+        loadFullEvidence(task.id)
     }
 
     if (!mounted) {
@@ -95,342 +185,534 @@ export default function DAOPage() {
         )
     }
 
+    // Time remaining formatter
+    const timeLeft = (deadline: number) => {
+        const ms = deadline - Date.now()
+        if (ms <= 0) return 'Expired'
+        const mins = Math.floor(ms / 60000)
+        if (mins < 60) return `${mins}m left`
+        return `${Math.floor(mins / 60)}h ${mins % 60}m left`
+    }
+
     return (
         <div className="min-h-screen bg-background pb-24">
             {/* Header */}
             <header className="border-b border-border p-4 sticky top-0 bg-background/80 backdrop-blur-md z-10">
                 <div className="max-w-4xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Link href="/" className="text-text-secondary hover:text-white">
+                        <Link href="/dashboard" className="text-text-secondary hover:text-white">
                             <ChevronLeft size={20} />
                         </Link>
                         <div>
                             <h1 className="text-lg font-bold text-white font-mono uppercase flex items-center gap-2">
-                                <Scale className="w-5 h-5 text-brand" />
-                                Dispute_DAO
+                                <Shield className="w-5 h-5 text-brand" />
+                                Validate
                             </h1>
-                            <p className="text-[10px] text-text-secondary uppercase">
-                                Community Governance & Resolution
+                            <p className="text-[10px] text-text-secondary uppercase tracking-wider">
+                                Review payments &bull; Earn $0.05/review
                             </p>
                         </div>
                     </div>
-                    {userIsArbitrator && (
-                        <Badge className="bg-purple-500/20 text-purple-400">
-                            <Award className="w-3 h-3 mr-1" />
-                            Arbitrator
-                        </Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                        {profile && (
+                            <Badge className="bg-green-500/20 text-green-400 font-mono">
+                                <DollarSign className="w-3 h-3 mr-0.5" />
+                                {profile.totalEarned.toFixed(2)}
+                            </Badge>
+                        )}
+                        <button
+                            onClick={fetchValidations}
+                            className="p-2 text-text-secondary hover:text-white transition-colors"
+                        >
+                            <RefreshCw className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             </header>
 
             <div className="max-w-4xl mx-auto px-4 py-6">
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-surface border border-border p-4">
-                        <div className="text-xs text-text-secondary uppercase mb-1">Total Disputes</div>
-                        <div className="text-2xl font-bold text-text-primary">{DAO_STATS.totalDisputes}</div>
-                    </div>
-                    <div className="bg-surface border border-border p-4">
-                        <div className="text-xs text-text-secondary uppercase mb-1">Active</div>
-                        <div className="text-2xl font-bold text-yellow-400">{DAO_STATS.activeDisputes}</div>
-                    </div>
-                    <div className="bg-surface border border-border p-4">
-                        <div className="text-xs text-text-secondary uppercase mb-1">Resolution Rate</div>
-                        <div className="text-2xl font-bold text-green-400">{DAO_STATS.resolutionRate}%</div>
-                    </div>
-                    <div className="bg-surface border border-border p-4">
-                        <div className="text-xs text-text-secondary uppercase mb-1">Arbitrators</div>
-                        <div className="text-2xl font-bold text-purple-400">{DAO_STATS.activeArbitrators}</div>
-                    </div>
-                </div>
-
-                {/* Connect Prompt */}
+                {/* Not Connected */}
                 {!isConnected && (
-                    <div className="bg-surface border border-border p-8 text-center mb-8">
-                        <Scale className="w-16 h-16 text-brand mx-auto mb-4" />
-                        <h2 className="text-xl font-bold text-text-primary mb-2">Connect to Participate</h2>
-                        <p className="text-text-secondary mb-6 max-w-md mx-auto">
-                            Connect your wallet to view disputes, vote as an arbitrator, or track your dispute history.
-                        </p>
+                    <div className="bg-surface border border-border p-8 text-center">
+                        <Shield className="w-16 h-16 text-brand mx-auto mb-4" />
+                        <h2 className="text-xl font-bold text-text-primary mb-2">Connect Wallet</h2>
+                        <p className="text-text-secondary mb-6">Connect to access the validation dashboard.</p>
                         <WalletConnect />
                     </div>
                 )}
 
-                {/* Tabs */}
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                    <TabsList className="bg-surface border border-border">
-                        <TabsTrigger value="disputes" className="data-[state=active]:bg-brand data-[state=active]:text-white">
-                            <Vote className="w-4 h-4 mr-2" />
-                            Disputes
-                        </TabsTrigger>
-                        <TabsTrigger value="arbitrators" className="data-[state=active]:bg-brand data-[state=active]:text-white">
-                            <Users className="w-4 h-4 mr-2" />
-                            Arbitrators
-                        </TabsTrigger>
-                        <TabsTrigger value="how-it-works" className="data-[state=active]:bg-brand data-[state=active]:text-white">
-                            <FileText className="w-4 h-4 mr-2" />
-                            How It Works
-                        </TabsTrigger>
-                    </TabsList>
+                {/* Not Gold+ */}
+                {isConnected && !isGoldPlus && (
+                    <div className="bg-surface border border-border p-8 text-center">
+                        <Award className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
+                        <h2 className="text-xl font-bold text-text-primary mb-2">Gold+ Required</h2>
+                        <p className="text-text-secondary mb-2">
+                            Validators must stake &ge;$500 USDC (Gold tier) to participate.
+                        </p>
+                        <p className="text-text-secondary text-sm mb-6">
+                            Your current tier: <span className="text-brand font-bold">{stakeProfile?.tier || 'None'}</span>
+                            {stakeProfile?.baseStake ? ` ($${stakeProfile.baseStake.toFixed(0)} staked)` : ''}
+                        </p>
+                        <Link
+                            href="/stake"
+                            className="inline-flex items-center gap-2 px-6 py-3 bg-brand text-white font-medium hover:bg-brand/90 transition-colors"
+                        >
+                            <Coins className="w-5 h-5" />
+                            Stake to Gold
+                            <ArrowRight className="w-4 h-4" />
+                        </Link>
+                    </div>
+                )}
 
-                    {/* Disputes Tab */}
-                    <TabsContent value="disputes" className="space-y-4">
-                        {/* Dispute List */}
-                        {disputes.length === 0 ? (
-                            <div className="bg-surface border border-border p-8 text-center">
-                                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                                <h3 className="text-lg font-bold text-text-primary mb-2">No Active Disputes</h3>
-                                <p className="text-text-secondary">All disputes have been resolved! Check back later.</p>
-                            </div>
-                        ) : (
-                            disputes.map((dispute) => (
-                                <div
-                                    key={dispute.id}
-                                    className="bg-surface border border-border p-4 hover:border-brand/50 transition-colors cursor-pointer"
-                                    onClick={() => setSelectedDispute(dispute)}
-                                >
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div>
-                                            <span className="text-xs text-brand font-mono uppercase">
-                                                Dispute #{dispute.id.slice(0, 8)}
-                                            </span>
-                                            <h3 className="font-medium text-text-primary mt-1">
-                                                Order: {dispute.amount} USDC
-                                            </h3>
-                                        </div>
-                                        <Badge className={getStatusColor(dispute.status)}>
-                                            {dispute.status}
-                                        </Badge>
-                                    </div>
-
-                                    <p className="text-sm text-text-secondary mb-4 line-clamp-2">
-                                        {dispute.reason}
-                                    </p>
-
-                                    <div className="flex items-center justify-between text-xs text-text-secondary">
-                                        <div className="flex items-center gap-4">
-                                            <span className="flex items-center gap-1">
-                                                <Users className="w-3 h-3" />
-                                                {Object.keys(dispute.votes || {}).length}/7 votes
-                                            </span>
-                                            <span className="flex items-center gap-1">
-                                                <Clock className="w-3 h-3" />
-                                                {new Date(dispute.createdAt).toLocaleDateString()}
-                                            </span>
-                                        </div>
-                                        {hasVoted(dispute) && (
-                                            <span className="text-green-400 flex items-center gap-1">
-                                                <CheckCircle className="w-3 h-3" />
-                                                Voted
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {/* Voting Progress */}
-                                    {dispute.status === 'voting' && (
-                                        <div className="mt-4 pt-4 border-t border-border">
-                                            <div className="flex justify-between text-xs mb-2">
-                                                <span className="text-green-400">Favor Buyer</span>
-                                                <span className="text-red-400">Favor Seller</span>
-                                            </div>
-                                            <div className="h-2 bg-border rounded-full overflow-hidden flex">
-                                                <div 
-                                                    className="h-full bg-green-500"
-                                                    style={{ width: `${(dispute.votesForBuyer / (dispute.votesForBuyer + dispute.votesForSeller + 1)) * 100}%` }}
-                                                />
-                                                <div 
-                                                    className="h-full bg-red-500"
-                                                    style={{ width: `${(dispute.votesForSeller / (dispute.votesForBuyer + dispute.votesForSeller + 1)) * 100}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
+                {/* Validator Dashboard */}
+                {isConnected && isGoldPlus && (
+                    <>
+                        {/* Stats Row */}
+                        <div className="grid grid-cols-3 gap-3 mb-6">
+                            <div className="bg-surface border border-border p-3 text-center">
+                                <div className="text-2xl font-bold text-brand font-mono">
+                                    {validations.filter(v => v.status === 'pending' && !v.myVote).length}
                                 </div>
-                            ))
-                        )}
-                    </TabsContent>
-
-                    {/* Arbitrators Tab */}
-                    <TabsContent value="arbitrators" className="space-y-4">
-                        <div className="bg-surface border border-border p-4 mb-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Award className="w-5 h-5 text-yellow-400" />
-                                <h3 className="font-bold text-text-primary">Top Arbitrators</h3>
+                                <div className="text-[10px] text-text-secondary uppercase">Open Tasks</div>
                             </div>
-                            <p className="text-sm text-text-secondary">
-                                Community members who contribute most to dispute resolution
-                            </p>
+                            <div className="bg-surface border border-border p-3 text-center">
+                                <div className="text-2xl font-bold text-green-400 font-mono">
+                                    {profile?.totalReviews || 0}
+                                </div>
+                                <div className="text-[10px] text-text-secondary uppercase">My Reviews</div>
+                            </div>
+                            <div className="bg-surface border border-border p-3 text-center">
+                                <div className="text-2xl font-bold text-yellow-400 font-mono">
+                                    {profile?.accuracy || 100}%
+                                </div>
+                                <div className="text-[10px] text-text-secondary uppercase">Accuracy</div>
+                            </div>
                         </div>
 
-                        <div className="space-y-2">
-                            {TOP_ARBITRATORS.map((arb, index) => (
-                                <div
-                                    key={arb.address}
-                                    className="bg-surface border border-border p-4 flex items-center gap-4"
-                                >
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                                        index === 0 ? 'bg-yellow-500 text-black' :
-                                        index === 1 ? 'bg-gray-300 text-black' :
-                                        index === 2 ? 'bg-orange-400 text-black' :
-                                        'bg-border text-text-secondary'
-                                    }`}>
-                                        {index + 1}
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="font-mono text-text-primary">{arb.address}</div>
-                                        <div className="text-xs text-text-secondary">
-                                            {arb.votes} votes • {arb.accuracy}% accuracy
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-brand font-bold">{arb.rewards} USDC</div>
-                                        <div className="text-xs text-text-secondary">earned</div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Become Arbitrator CTA */}
-                        <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/20 border border-purple-500/20 p-6 text-center">
-                            <Shield className="w-12 h-12 text-purple-400 mx-auto mb-4" />
-                            <h3 className="text-lg font-bold text-text-primary mb-2">Become an Arbitrator</h3>
-                            <p className="text-text-secondary text-sm mb-4 max-w-md mx-auto">
-                                Stake at least 500 USDC (Gold tier) to qualify as a community arbitrator and earn rewards for voting on disputes.
-                            </p>
-                            <Link
-                                href="/stake"
-                                className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                        {/* Tabs */}
+                        <div className="flex gap-2 mb-6">
+                            <button
+                                onClick={() => setTab('queue')}
+                                className={`flex-1 py-2 text-sm font-medium border transition-colors ${
+                                    tab === 'queue'
+                                        ? 'bg-brand text-white border-brand'
+                                        : 'bg-surface text-text-secondary border-border hover:text-text-primary'
+                                }`}
                             >
-                                <Coins className="w-5 h-5" />
-                                Start Staking
-                            </Link>
-                        </div>
-                    </TabsContent>
-
-                    {/* How It Works Tab */}
-                    <TabsContent value="how-it-works" className="space-y-4">
-                        <div className="bg-surface border border-border p-6">
-                            <h3 className="font-bold text-text-primary mb-4">Dispute Resolution Process</h3>
-                            
-                            <div className="space-y-6">
-                                {[
-                                    {
-                                        step: 1,
-                                        title: "Dispute Raised",
-                                        description: "Either party can raise a dispute within 24 hours of trade completion. Evidence must be provided."
-                                    },
-                                    {
-                                        step: 2,
-                                        title: "Arbitrator Review",
-                                        description: "7 random arbitrators are selected from the Gold+ tier stakers to review the dispute."
-                                    },
-                                    {
-                                        step: 3,
-                                        title: "Voting Period",
-                                        description: "Arbitrators have 24 hours to review evidence and cast their votes. Majority wins."
-                                    },
-                                    {
-                                        step: 4,
-                                        title: "Resolution",
-                                        description: "Winner receives funds. Loser's stake is slashed. Arbitrators who voted correctly earn rewards."
-                                    }
-                                ].map((item) => (
-                                    <div key={item.step} className="flex gap-4">
-                                        <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center text-brand font-bold flex-shrink-0">
-                                            {item.step}
-                                        </div>
-                                        <div>
-                                            <h4 className="font-medium text-text-primary">{item.title}</h4>
-                                            <p className="text-sm text-text-secondary">{item.description}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                                <Eye className="w-4 h-4 inline mr-1" />
+                                Review Queue
+                            </button>
+                            <button
+                                onClick={() => setTab('earnings')}
+                                className={`flex-1 py-2 text-sm font-medium border transition-colors ${
+                                    tab === 'earnings'
+                                        ? 'bg-brand text-white border-brand'
+                                        : 'bg-surface text-text-secondary border-border hover:text-text-primary'
+                                }`}
+                            >
+                                <DollarSign className="w-4 h-4 inline mr-1" />
+                                Earnings
+                            </button>
                         </div>
 
-                        <div className="bg-surface border border-border p-6">
-                            <h3 className="font-bold text-text-primary mb-4">Slashing Rules</h3>
-                            
+                        {/* Queue Tab */}
+                        {tab === 'queue' && (
                             <div className="space-y-3">
-                                <div className="flex items-start gap-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                                    <XCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <div className="font-medium text-red-400">Losing a Dispute</div>
-                                        <div className="text-sm text-text-secondary">10% of locked stake is slashed</div>
+                                {/* Filter */}
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs text-text-secondary uppercase">
+                                        {validations.length} task{validations.length !== 1 ? 's' : ''}
+                                    </span>
+                                    <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={showResolved}
+                                            onChange={(e) => setShowResolved(e.target.checked)}
+                                            className="rounded border-border"
+                                        />
+                                        Show resolved
+                                    </label>
+                                </div>
+
+                                {isLoading ? (
+                                    <div className="bg-surface border border-border p-8 text-center">
+                                        <Loader2 className="w-8 h-8 animate-spin text-brand mx-auto mb-2" />
+                                        <p className="text-text-secondary text-sm">Loading validations...</p>
+                                    </div>
+                                ) : validations.length === 0 ? (
+                                    <div className="bg-surface border border-border p-8 text-center">
+                                        <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+                                        <h3 className="text-lg font-bold text-text-primary mb-2">Queue Empty</h3>
+                                        <p className="text-text-secondary text-sm">
+                                            No pending validations. New tasks appear when LPs submit payment proofs.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    validations.map((task) => (
+                                        <div
+                                            key={task.id}
+                                            className={`bg-surface border p-4 transition-colors ${
+                                                task.myVote
+                                                    ? 'border-border/50 opacity-70'
+                                                    : task.status === 'pending'
+                                                    ? 'border-brand/30 hover:border-brand/60 cursor-pointer'
+                                                    : 'border-border'
+                                            }`}
+                                            onClick={() => task.status === 'pending' && !task.myVote && openReview(task)}
+                                        >
+                                            <div className="flex items-start justify-between mb-2">
+                                                <div>
+                                                    <span className="text-xs text-brand font-mono">
+                                                        #{task.orderId.slice(0, 8)}
+                                                    </span>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className="text-lg font-bold text-text-primary">
+                                                            ${task.evidence.amountUsdc.toFixed(2)}
+                                                        </span>
+                                                        <span className="text-xs text-text-secondary">
+                                                            &asymp; {task.evidence.fiatCurrency} {task.evidence.amountFiat.toFixed(0)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <StatusBadge status={task.status} myVote={task.myVote} />
+                                                    {task.status === 'pending' && (
+                                                        <span className="text-[10px] text-text-secondary flex items-center gap-1">
+                                                            <Clock className="w-3 h-3" />
+                                                            {timeLeft(task.deadline)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Vote progress bar */}
+                                            <div className="mt-3">
+                                                <div className="flex justify-between text-[10px] text-text-secondary mb-1">
+                                                    <span>
+                                                        {task.votesCount}/{task.threshold} votes
+                                                    </span>
+                                                    <span>
+                                                        <span className="text-green-400">{task.approvesCount} approve</span>
+                                                        {' / '}
+                                                        <span className="text-red-400">{task.flagsCount} flag</span>
+                                                    </span>
+                                                </div>
+                                                <div className="h-1.5 bg-border rounded-full overflow-hidden flex">
+                                                    <div
+                                                        className="h-full bg-green-500 transition-all"
+                                                        style={{ width: `${(task.approvesCount / task.threshold) * 100}%` }}
+                                                    />
+                                                    <div
+                                                        className="h-full bg-red-500 transition-all"
+                                                        style={{ width: `${(task.flagsCount / task.threshold) * 100}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* CTA */}
+                                            {task.status === 'pending' && !task.myVote && (
+                                                <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
+                                                    <span className="text-xs text-text-secondary">
+                                                        {task.evidence.paymentMethod} payment
+                                                    </span>
+                                                    <span className="text-xs text-brand flex items-center gap-1 font-medium">
+                                                        Review <ArrowRight className="w-3 h-3" />
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {task.myVote && (
+                                                <div className="mt-3 pt-3 border-t border-border text-xs text-text-secondary flex items-center gap-1">
+                                                    {task.myVote === 'approve' ? (
+                                                        <><ThumbsUp className="w-3 h-3 text-green-400" /> You approved</>
+                                                    ) : (
+                                                        <><ThumbsDown className="w-3 h-3 text-red-400" /> You flagged</>
+                                                    )}
+                                                    <span className="ml-auto text-green-400">+${config.rewardPerReview}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+
+                        {/* Earnings Tab */}
+                        {tab === 'earnings' && (
+                            <div className="space-y-4">
+                                <div className="bg-gradient-to-br from-green-900/20 to-brand/10 border border-green-500/20 p-6 text-center">
+                                    <DollarSign className="w-12 h-12 text-green-400 mx-auto mb-2" />
+                                    <div className="text-3xl font-bold text-green-400 font-mono mb-1">
+                                        ${(profile?.totalEarned || 0).toFixed(2)}
+                                    </div>
+                                    <div className="text-xs text-text-secondary uppercase">Total Earned</div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-surface border border-border p-4">
+                                        <div className="text-sm text-text-secondary mb-1">Total Reviews</div>
+                                        <div className="text-xl font-bold text-text-primary font-mono">
+                                            {profile?.totalReviews || 0}
+                                        </div>
+                                    </div>
+                                    <div className="bg-surface border border-border p-4">
+                                        <div className="text-sm text-text-secondary mb-1">Accuracy</div>
+                                        <div className="text-xl font-bold text-yellow-400 font-mono">
+                                            {profile?.accuracy || 100}%
+                                        </div>
+                                    </div>
+                                    <div className="bg-surface border border-border p-4">
+                                        <div className="text-sm text-text-secondary mb-1">Approvals</div>
+                                        <div className="text-xl font-bold text-green-400 font-mono">
+                                            {profile?.approvals || 0}
+                                        </div>
+                                    </div>
+                                    <div className="bg-surface border border-border p-4">
+                                        <div className="text-sm text-text-secondary mb-1">Flags</div>
+                                        <div className="text-xl font-bold text-red-400 font-mono">
+                                            {profile?.flags || 0}
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex items-start gap-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                                    <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <div className="font-medium text-yellow-400">Wrong Vote</div>
-                                        <div className="text-sm text-text-secondary">Arbitrators who vote incorrectly lose voting rewards</div>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-3 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                                    <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <div className="font-medium text-green-400">Winning a Dispute</div>
-                                        <div className="text-sm text-text-secondary">Receive funds + portion of loser's slashed stake</div>
+
+                                {/* How it works */}
+                                <div className="bg-surface border border-border p-4">
+                                    <h3 className="text-sm font-bold text-text-primary mb-3 flex items-center gap-2">
+                                        <Zap className="w-4 h-4 text-brand" />
+                                        How Validation Works
+                                    </h3>
+                                    <div className="space-y-3 text-sm text-text-secondary">
+                                        <div className="flex gap-3">
+                                            <div className="w-6 h-6 rounded-full bg-brand/20 flex items-center justify-center text-brand text-xs font-bold shrink-0">1</div>
+                                            <div>LP submits fiat payment proof &rarr; order enters <span className="text-brand">verifying</span> state</div>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <div className="w-6 h-6 rounded-full bg-brand/20 flex items-center justify-center text-brand text-xs font-bold shrink-0">2</div>
+                                            <div>All Gold+ validators see the task in the open queue</div>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <div className="w-6 h-6 rounded-full bg-brand/20 flex items-center justify-center text-brand text-xs font-bold shrink-0">3</div>
+                                            <div>First <span className="text-brand">{config.threshold} validators</span> to vote resolve the task</div>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <div className="w-6 h-6 rounded-full bg-brand/20 flex items-center justify-center text-brand text-xs font-bold shrink-0">4</div>
+                                            <div>Majority approve &rarr; LP gets paid. Majority flag &rarr; escalated to admin.</div>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs font-bold shrink-0">$</div>
+                                            <div>You earn <span className="text-green-400">${config.rewardPerReview} USDC</span> per review, regardless of outcome</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </TabsContent>
-                </Tabs>
+                        )}
+                    </>
+                )}
             </div>
 
-            {/* Vote Modal */}
-            {selectedDispute && selectedDispute.status === 'voting' && isArbitrator(selectedDispute) && !hasVoted(selectedDispute) && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                    <div className="bg-surface border border-border max-w-lg w-full p-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="font-bold text-text-primary">Cast Your Vote</h3>
-                            <button 
-                                onClick={() => setSelectedDispute(null)}
-                                className="text-text-secondary hover:text-text-primary"
+            {/* === Review Modal === */}
+            {selectedTask && (
+                <div className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+                    <div className="bg-surface border border-border w-full sm:max-w-lg sm:rounded-lg max-h-[90vh] overflow-y-auto">
+                        {/* Modal Header */}
+                        <div className="sticky top-0 bg-surface border-b border-border p-4 flex items-center justify-between z-10">
+                            <div>
+                                <h3 className="font-bold text-text-primary flex items-center gap-2">
+                                    <Eye className="w-4 h-4 text-brand" />
+                                    Review Payment
+                                </h3>
+                                <span className="text-xs text-text-secondary font-mono">
+                                    Order #{selectedTask.orderId.slice(0, 8)}
+                                </span>
+                            </div>
+                            <button
+                                onClick={() => { setSelectedTask(null); setFullEvidence(null); setNotes("") }}
+                                className="p-2 text-text-secondary hover:text-text-primary"
                             >
                                 <XCircle className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <div className="mb-6">
-                            <div className="text-xs text-brand font-mono uppercase mb-2">
-                                Dispute #{selectedDispute.id.slice(0, 8)}
+                        <div className="p-4 space-y-4">
+                            {/* Order Summary */}
+                            <div className="bg-background border border-border p-3">
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <span className="text-text-secondary text-xs">Amount</span>
+                                        <div className="text-text-primary font-bold">
+                                            ${selectedTask.evidence.amountUsdc.toFixed(2)} USDC
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span className="text-text-secondary text-xs">Fiat</span>
+                                        <div className="text-text-primary font-bold">
+                                            {selectedTask.evidence.fiatCurrency} {selectedTask.evidence.amountFiat.toFixed(0)}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span className="text-text-secondary text-xs">Method</span>
+                                        <div className="text-text-primary">{selectedTask.evidence.paymentMethod}</div>
+                                    </div>
+                                    <div>
+                                        <span className="text-text-secondary text-xs">Time Left</span>
+                                        <div className="text-yellow-400">{timeLeft(selectedTask.deadline)}</div>
+                                    </div>
+                                </div>
                             </div>
-                            <p className="text-text-secondary text-sm">{selectedDispute.reason}</p>
-                        </div>
 
-                        <div className="mb-6">
-                            <label className="text-sm text-text-secondary mb-2 block">Your Reasoning</label>
-                            <textarea
-                                value={voteReasoning}
-                                onChange={(e) => setVoteReasoning(e.target.value)}
-                                placeholder="Explain your vote decision..."
-                                className="w-full px-4 py-3 bg-background border border-border text-text-primary placeholder-text-secondary focus:outline-none focus:border-brand resize-none h-24"
-                            />
-                        </div>
+                            {/* Evidence Comparison */}
+                            <div>
+                                <h4 className="text-xs text-text-secondary uppercase mb-2 font-medium">Evidence</h4>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <button
-                                onClick={() => handleVote(true)}
-                                disabled={isVoting || !voteReasoning.trim()}
-                                className="py-3 bg-green-500/20 border border-green-500/50 text-green-400 font-medium hover:bg-green-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                            >
-                                {isVoting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsUp className="w-4 h-4" />}
-                                Favor Buyer
-                            </button>
-                            <button
-                                onClick={() => handleVote(false)}
-                                disabled={isVoting || !voteReasoning.trim()}
-                                className="py-3 bg-red-500/20 border border-red-500/50 text-red-400 font-medium hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                            >
-                                {isVoting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsDown className="w-4 h-4" />}
-                                Favor Seller
-                            </button>
+                                {!fullEvidence ? (
+                                    <div className="bg-background border border-border p-8 text-center">
+                                        <Loader2 className="w-6 h-6 animate-spin text-brand mx-auto mb-2" />
+                                        <p className="text-text-secondary text-xs">Loading evidence...</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {/* User's QR / Payment Details */}
+                                        <div className="bg-background border border-border p-3">
+                                            <div className="text-[10px] text-text-secondary uppercase mb-2 flex items-center gap-1">
+                                                <ImageIcon className="w-3 h-3" />
+                                                User QR
+                                            </div>
+                                            {fullEvidence.evidence.userQrImage ? (
+                                                <img
+                                                    src={fullEvidence.evidence.userQrImage}
+                                                    alt="User QR"
+                                                    className="w-full aspect-square object-contain bg-white rounded"
+                                                />
+                                            ) : (
+                                                <div className="w-full aspect-square bg-border/30 flex items-center justify-center text-xs text-text-secondary">
+                                                    No QR
+                                                </div>
+                                            )}
+                                            <div className="mt-2 text-[10px] text-text-secondary font-mono truncate">
+                                                {fullEvidence.evidence.userAddress.slice(0, 8)}...
+                                            </div>
+                                        </div>
+
+                                        {/* LP's Payment Proof */}
+                                        <div className="bg-background border border-border p-3">
+                                            <div className="text-[10px] text-text-secondary uppercase mb-2 flex items-center gap-1">
+                                                <ImageIcon className="w-3 h-3" />
+                                                LP Proof
+                                            </div>
+                                            {fullEvidence.evidence.lpScreenshot ? (
+                                                <img
+                                                    src={fullEvidence.evidence.lpScreenshot}
+                                                    alt="LP Payment Proof"
+                                                    className="w-full aspect-square object-contain bg-white rounded"
+                                                />
+                                            ) : (
+                                                <div className="w-full aspect-square bg-border/30 flex items-center justify-center text-xs text-text-secondary">
+                                                    No proof
+                                                </div>
+                                            )}
+                                            <div className="mt-2 text-[10px] text-text-secondary font-mono truncate">
+                                                {fullEvidence.evidence.lpAddress.slice(0, 8)}...
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Verification checklist */}
+                            <div className="bg-yellow-500/10 border border-yellow-500/20 p-3">
+                                <div className="text-xs text-yellow-400 font-medium mb-2">
+                                    <AlertTriangle className="w-3 h-3 inline mr-1" />
+                                    Check Before Voting
+                                </div>
+                                <ul className="text-xs text-text-secondary space-y-1 list-disc list-inside">
+                                    <li>LP proof shows correct payment amount</li>
+                                    <li>Payment method matches (UPI/bank)</li>
+                                    <li>Recipient details match user QR</li>
+                                    <li>No signs of image editing or manipulation</li>
+                                </ul>
+                            </div>
+
+                            {/* Notes */}
+                            <div>
+                                <label className="text-xs text-text-secondary block mb-1">Notes (optional)</label>
+                                <textarea
+                                    value={notes}
+                                    onChange={(e) => setNotes(e.target.value)}
+                                    placeholder="Any observations..."
+                                    className="w-full px-3 py-2 bg-background border border-border text-text-primary text-sm placeholder-text-secondary/50 focus:outline-none focus:border-brand resize-none h-16"
+                                />
+                            </div>
+
+                            {/* Vote Buttons */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    onClick={() => submitVote('approve')}
+                                    disabled={isVoting || !fullEvidence}
+                                    className="py-3 bg-green-500/20 border border-green-500/50 text-green-400 font-medium hover:bg-green-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {isVoting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsUp className="w-4 h-4" />}
+                                    Approve
+                                </button>
+                                <button
+                                    onClick={() => submitVote('flag')}
+                                    disabled={isVoting || !fullEvidence}
+                                    className="py-3 bg-red-500/20 border border-red-500/50 text-red-400 font-medium hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {isVoting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Flag className="w-4 h-4" />}
+                                    Flag
+                                </button>
+                            </div>
+
+                            <div className="text-center text-[10px] text-text-secondary">
+                                Earn <span className="text-green-400">${config.rewardPerReview} USDC</span> for this review
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
         </div>
     )
+}
+
+// Status badge component
+function StatusBadge({ status, myVote }: { status: string; myVote?: string | null }) {
+    if (myVote) {
+        return (
+            <Badge className="bg-blue-500/20 text-blue-400 text-[10px]">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                Voted
+            </Badge>
+        )
+    }
+
+    switch (status) {
+        case 'pending':
+            return (
+                <Badge className="bg-yellow-500/20 text-yellow-400 text-[10px]">
+                    <Clock className="w-3 h-3 mr-1" />
+                    Pending
+                </Badge>
+            )
+        case 'approved':
+        case 'auto_approved':
+            return (
+                <Badge className="bg-green-500/20 text-green-400 text-[10px]">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Approved
+                </Badge>
+            )
+        case 'escalated':
+            return (
+                <Badge className="bg-red-500/20 text-red-400 text-[10px]">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    Escalated
+                </Badge>
+            )
+        default:
+            return (
+                <Badge className="bg-gray-500/20 text-gray-400 text-[10px]">
+                    {status}
+                </Badge>
+            )
+    }
 }

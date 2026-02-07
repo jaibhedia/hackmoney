@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { orders as orderStore } from "../orders/sse/route"
 
 // Mock LP pool
 const liquidityProviders = [
@@ -7,6 +8,31 @@ const liquidityProviders = [
     { address: "0x3456...7890", stake: 100, rate: 0.999, available: true },
     { address: "0x4567...8901", stake: 450, rate: 0.998, available: true },
 ]
+
+/**
+ * Calculate LP's locked stake from orders within 24hr window
+ * Orders completed in last 24hrs still have their stake locked
+ */
+export function calculateLockedStake(lpAddress: string): number {
+    const now = Date.now()
+    let lockedAmount = 0
+    
+    orderStore.forEach((order) => {
+        if (order.solverAddress?.toLowerCase() !== lpAddress.toLowerCase()) return
+        
+        // Orders still in progress lock their full amount
+        if (["matched", "payment_pending", "verifying"].includes(order.status)) {
+            lockedAmount += order.amountUsdc
+        }
+        
+        // Completed orders within 24hr window still lock stake
+        if (order.status === "completed" && order.stakeLockExpiresAt && order.stakeLockExpiresAt > now) {
+            lockedAmount += order.amountUsdc
+        }
+    })
+    
+    return lockedAmount
+}
 
 export async function POST(request: NextRequest) {
     const body = await request.json()
@@ -45,7 +71,25 @@ export async function POST(request: NextRequest) {
     })
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+    const lpAddress = request.nextUrl.searchParams.get("lpAddress")
+    const totalStake = parseFloat(request.nextUrl.searchParams.get("totalStake") || "0")
+    
+    // If LP address provided, return their available stake
+    if (lpAddress && totalStake > 0) {
+        const lockedStake = calculateLockedStake(lpAddress)
+        const availableStake = Math.max(0, totalStake - lockedStake)
+        
+        return NextResponse.json({
+            success: true,
+            lpAddress,
+            totalStake,
+            lockedStake,
+            availableStake,
+            canAcceptOrder: (orderAmount: number) => orderAmount <= availableStake,
+        })
+    }
+    
     return NextResponse.json({
         providers: liquidityProviders,
         totalLiquidity: liquidityProviders.reduce((sum, lp) => sum + lp.stake, 0),

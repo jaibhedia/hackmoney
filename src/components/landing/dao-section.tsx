@@ -83,7 +83,7 @@ export function DAOSection() {
                     className="text-center mt-20"
                 >
                     <Link
-                        href="/arbitrator"
+                        href="/dao"
                         className="inline-flex items-center gap-3 px-8 py-3 bg-white text-black font-semibold rounded hover:bg-gray-200 transition-all group"
                     >
                         Enter DAO

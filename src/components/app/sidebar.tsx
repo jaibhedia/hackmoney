@@ -8,7 +8,6 @@ import {
     ArrowLeftRight,
     ClipboardList,
     Gift,
-    Settings,
     LogOut,
 } from "lucide-react"
 
@@ -17,7 +16,6 @@ const navItems = [
     { href: "/trade", icon: ArrowLeftRight, label: "Trade" },
     { href: "/orders", icon: ClipboardList, label: "Orders" },
     { href: "/rewards", icon: Gift, label: "Rewards" },
-    { href: "/settings", icon: Settings, label: "Settings" },
 ]
 
 export function Sidebar() {

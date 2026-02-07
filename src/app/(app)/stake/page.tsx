@@ -170,9 +170,9 @@ export default function StakePage() {
                             </p>
                         </div>
                         <div>
-                            <p className="text-sm opacity-80">Order Limit</p>
+                            <p className="text-sm opacity-80">Max Order</p>
                             <p className="text-2xl font-bold font-mono">
-                                ₹{currentConfig.orderLimit === Infinity ? '∞' : currentConfig.orderLimit.toLocaleString()}
+                                ${currentConfig.maxOrder} USDC
                             </p>
                         </div>
                     </div>
@@ -364,9 +364,9 @@ export default function StakePage() {
                                         </span>
                                     </div>
                                     <div className="flex justify-between text-sm">
-                                        <span className="text-text-secondary">Order Limit</span>
+                                        <span className="text-text-secondary">Max Order</span>
                                         <span className="font-mono">
-                                            ₹{tier.orderLimit === Infinity ? '∞' : tier.orderLimit.toLocaleString()}
+                                            ${tier.maxOrder} USDC
                                         </span>
                                     </div>
                                     <div className="flex flex-wrap gap-1 mt-2">

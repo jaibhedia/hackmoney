@@ -1,19 +1,17 @@
 "use client"
 
 import { useState } from "react"
-import { Wallet, LogOut, Loader2, Mail, Chrome, Apple } from "lucide-react"
+import { Wallet, LogOut, Loader2, Chrome, Apple } from "lucide-react"
 import { useWallet } from "@/hooks/useWallet"
 
 /**
  * WalletConnect Component
  * 
- * Social login with Thirdweb (Google, Apple, Email)
+ * Social login with Thirdweb (Google, Apple)
  * Creates Arc custodial wallet with ENS-style naming
  */
 export function WalletConnect() {
     const { isConnected, displayName, balance, connect, disconnect, isLoading } = useWallet()
-    const [email, setEmail] = useState("")
-    const [showEmailInput, setShowEmailInput] = useState(false)
     const [isConnecting, setIsConnecting] = useState(false)
     const [connectingMethod, setConnectingMethod] = useState<string | null>(null)
 
@@ -31,22 +29,6 @@ export function WalletConnect() {
         await connect("apple")
         setIsConnecting(false)
         setConnectingMethod(null)
-    }
-
-    const handleEmailConnect = async () => {
-        if (!showEmailInput) {
-            setShowEmailInput(true)
-            return
-        }
-        if (!email) return
-
-        setIsConnecting(true)
-        setConnectingMethod("email")
-        await connect("email", email)
-        setIsConnecting(false)
-        setConnectingMethod(null)
-        setShowEmailInput(false)
-        setEmail("")
     }
 
     if (isLoading) {
@@ -107,38 +89,6 @@ export function WalletConnect() {
                     <Apple className="w-5 h-5" />
                 )}
                 Continue with Apple
-            </button>
-
-            <div className="flex items-center gap-3 my-2">
-                <div className="flex-1 h-px bg-border" />
-                <span className="text-xs text-text-secondary">or</span>
-                <div className="flex-1 h-px bg-border" />
-            </div>
-
-            {/* Email Input */}
-            {showEmailInput && (
-                <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    className="w-full bg-surface border border-border px-4 py-3 text-sm text-text-primary focus:border-brand outline-none rounded-lg"
-                    onKeyDown={(e) => e.key === "Enter" && handleEmailConnect()}
-                    autoFocus
-                />
-            )}
-
-            <button
-                onClick={handleEmailConnect}
-                disabled={isConnecting || (showEmailInput && !email)}
-                className="flex items-center justify-center gap-3 px-6 py-3 bg-brand text-white font-bold rounded-lg hover:bg-brand/90 transition-colors disabled:opacity-50"
-            >
-                {connectingMethod === "email" ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                    <Mail className="w-5 h-5" />
-                )}
-                {showEmailInput ? "Create Wallet" : "Continue with Email"}
             </button>
         </div>
     )

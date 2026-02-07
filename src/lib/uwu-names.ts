@@ -15,6 +15,36 @@ const UWU_NAMES_PACKAGE_ID = process.env.NEXT_PUBLIC_UWU_NAMES_PACKAGE_ID || "0x
 const nameCache = new Map<string, string>() // name -> address
 const reverseCache = new Map<string, string>() // address -> name
 
+// Initialize caches from localStorage
+if (typeof window !== 'undefined') {
+    try {
+        const stored = localStorage.getItem('uwu_names_registry')
+        if (stored) {
+            const registry = JSON.parse(stored) as Record<string, string>
+            Object.entries(registry).forEach(([name, addr]) => {
+                nameCache.set(name, addr)
+                reverseCache.set(addr.toLowerCase(), name)
+            })
+        }
+    } catch (e) {
+        console.error('[UwuNames] Failed to load from localStorage:', e)
+    }
+}
+
+// Helper to persist names to localStorage
+function persistToLocalStorage() {
+    if (typeof window === 'undefined') return
+    try {
+        const registry: Record<string, string> = {}
+        nameCache.forEach((addr, name) => {
+            registry[name] = addr
+        })
+        localStorage.setItem('uwu_names_registry', JSON.stringify(registry))
+    } catch (e) {
+        console.error('[UwuNames] Failed to persist to localStorage:', e)
+    }
+}
+
 export interface UwuName {
     name: string
     address: string
@@ -58,6 +88,7 @@ export async function registerUwuName(
             console.log("[UwuNames] Running in simulation mode")
             nameCache.set(cleanName, address)
             reverseCache.set(address.toLowerCase(), cleanName)
+            persistToLocalStorage()
             return { success: true, name: `${cleanName}.uwu` }
         }
 
@@ -71,6 +102,7 @@ export async function registerUwuName(
         // Cache locally
         nameCache.set(cleanName, address)
         reverseCache.set(address.toLowerCase(), cleanName)
+        persistToLocalStorage()
 
         return { success: true, name: `${cleanName}.uwu` }
     } catch (error) {

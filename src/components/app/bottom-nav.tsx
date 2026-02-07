@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { QrCode, Wallet, Users, User, Home, Scale, Receipt } from "lucide-react"
+import { QrCode, Wallet, Users, User, Home, Shield, Receipt } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useStaking } from "@/hooks/useStaking"
 import { useWallet } from "@/hooks/useWallet"
@@ -29,13 +29,19 @@ export function BottomNav() {
         }
     }, [address, fetchStakeProfile])
 
-    // Determine if user qualifies as arbitrator (Gold tier or above)
+    // DAO validators from env — bypass Gold+ requirement
+    const DAO_VALIDATORS = (process.env.NEXT_PUBLIC_DAO_VALIDATORS || '').split(',').map(a => a.trim().toLowerCase()).filter(Boolean)
+
+    // Determine if user qualifies as validator (Gold+ OR env-listed validator)
     useEffect(() => {
-        if (stakeProfile) {
+        const isEnvValidator = address ? DAO_VALIDATORS.includes(address.toLowerCase()) : false
+        if (isEnvValidator) {
+            setIsArbitrator(true)
+        } else if (stakeProfile) {
             const arbitratorTiers = ['Gold', 'Diamond']
             setIsArbitrator(arbitratorTiers.includes(stakeProfile.tier))
         }
-    }, [stakeProfile])
+    }, [stakeProfile, address])
 
     const isLP = stakeProfile?.isLP ?? false
 
@@ -83,7 +89,7 @@ export function BottomNav() {
                     )}>
                         <QrCode className="w-6 h-6 text-[#3b82f6]" style={{ color: pathname === "/scan" ? "#fff" : "#3b82f6" }} />
                     </div>
-                    <span className="text-[10px] text-[#8b8b9e] mt-1">Scan</span>
+                    <span className="text-[10px] text-[#8b8b9e] mt-1">Sell</span>
                 </Link>
 
                 {/* Role-based 4th tab: LP for LPs, DAO for arbitrators, Orders for regular users */}
@@ -102,16 +108,16 @@ export function BottomNav() {
                     </Link>
                 ) : isArbitrator ? (
                     <Link
-                        href="/arbitrator"
+                        href="/dao"
                         className={cn(
                             "flex flex-col items-center px-3 py-2 rounded-lg text-xs font-medium transition-colors",
-                            pathname === "/arbitrator"
-                                ? "text-[#a855f7]"
+                            pathname === "/dao"
+                                ? "text-[#22c55e]"
                                 : "text-[#8b8b9e] hover:text-white"
                         )}
                     >
-                        <Scale className="w-5 h-5 mb-1" />
-                        DAO
+                        <Shield className="w-5 h-5 mb-1" />
+                        Validate
                     </Link>
                 ) : (
                     <Link

@@ -122,7 +122,7 @@ export default function OnboardingPage() {
                 </Link>
             </div>
 
-            <div className="relative z-10 max-w-md mx-auto px-4 pt-14 pb-8 min-h-screen flex flex-col">
+            <div className="relative z-10 max-w-md mx-auto px-4 pt-14 pb-8 min-h-screen flex flex-col justify-center">
                 {/* Header */}
                 <div className="text-center mb-6">
                     <h1 className="text-2xl font-bold mb-1">Get Started</h1>
@@ -158,7 +158,7 @@ export default function OnboardingPage() {
                 </div>
 
                 {/* Step Content */}
-                <div className="flex-1 flex flex-col">
+                <div>
                     <AnimatePresence mode="wait">
                         {/* Step 1: Connect Wallet */}
                         {currentStep === 1 && (
@@ -167,20 +167,18 @@ export default function OnboardingPage() {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
-                                className="text-center flex-1 flex flex-col"
+                                className="text-center"
                             >
                                 <div className="w-16 h-16 rounded-xl bg-green-500/20 flex items-center justify-center mx-auto mb-4">
                                     <Wallet className="w-8 h-8 text-green-400" />
                                 </div>
                                 
                                 <h2 className="text-xl font-bold mb-2">Connect Your Wallet</h2>
-                                <p className="text-gray-400 text-sm mb-6 px-4">
+                                <p className="text-gray-400 text-sm mb-8 px-4">
                                     Sign in with your preferred method. We'll create a secure wallet for you on Arc chain.
                                 </p>
                                 
-                                <div className="mt-auto pb-4">
-                                    <WalletConnect />
-                                </div>
+                                <WalletConnect />
                             </motion.div>
                         )}
 
@@ -191,7 +189,7 @@ export default function OnboardingPage() {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
-                                className="text-center flex-1 flex flex-col"
+                                className="text-center"
                             >
                                 <div className="w-16 h-16 rounded-xl bg-blue-500/20 flex items-center justify-center mx-auto mb-4">
                                     <Coins className="w-8 h-8 text-blue-400" />
@@ -215,7 +213,7 @@ export default function OnboardingPage() {
                                 </div>
                                 
                                 {/* Deposit Form */}
-                                <div className="space-y-3 mt-auto">
+                                <div className="space-y-3 mt-4">
                                     <div className="relative">
                                         <input
                                             type="number"
@@ -279,7 +277,7 @@ export default function OnboardingPage() {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
-                                className="text-center flex-1 flex flex-col"
+                                className="text-center"
                             >
                                 <div className="w-16 h-16 rounded-xl bg-green-500/20 flex items-center justify-center mx-auto mb-4">
                                     <Check className="w-8 h-8 text-green-400" />
@@ -300,7 +298,7 @@ export default function OnboardingPage() {
                                 </div>
                                 
                                 {/* Action Buttons */}
-                                <div className="space-y-3 mt-auto">
+                                <div className="space-y-3 mt-4">
                                     <button
                                         onClick={handleSkipToApp}
                                         className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold flex items-center justify-center gap-2"

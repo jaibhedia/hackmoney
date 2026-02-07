@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { WalletConnect } from "@/components/app/wallet-connect"
 import { useWallet } from "@/hooks/useWallet"
 import { useStaking, TIER_CONFIG } from "@/hooks/useStaking"
+import { useUserLimits } from "@/hooks/useUserLimits"
 import { fiatToUsdc, formatCurrency } from "@/lib/currency-converter"
 import { useRouter } from "next/navigation"
 
@@ -41,6 +42,7 @@ export default function BuyPage() {
 
     const { address, isConnected } = useWallet()
     const { stakeProfile, fetchStakeProfile } = useStaking()
+    const { limitData } = useUserLimits(address || null)
     const [liveRate, setLiveRate] = useState<number | null>(null)
 
     // Fetch live rate on mount
@@ -65,8 +67,11 @@ export default function BuyPage() {
     }, [address, fetchStakeProfile])
 
     // Get current tier limit
+    // LPs (with stake) use their LP tier limit, regular users use progressive limits
+    const isLP = stakeProfile?.isLP && stakeProfile.baseStake > 0
     const currentTierConfig = TIER_CONFIG.find(t => t.name === (stakeProfile?.tier || 'Starter')) || TIER_CONFIG[0]
-    const orderExceedsTierLimit = parseFloat(amount) > currentTierConfig.orderLimit
+    const maxOrderUsdc = isLP ? currentTierConfig.maxOrder : (limitData?.maxOrder || 150)
+    const orderExceedsTierLimit = usdcAmount > maxOrderUsdc
 
     useEffect(() => {
         setMounted(true)
@@ -93,7 +98,7 @@ export default function BuyPage() {
     const formattedCountdown = `${Math.floor(countdown / 60)}:${(countdown % 60).toString().padStart(2, "0")}`
 
     const handleContinue = () => {
-        if (amount === "0" || parseFloat(amount) < 100) return
+        if (amount === "0" || parseFloat(amount) <= 0) return
 
         // Check tier limit
         if (orderExceedsTierLimit) {
@@ -209,7 +214,7 @@ export default function BuyPage() {
                                 <div>
                                     <p className="text-xs text-warning font-bold uppercase">TIER_LIMIT_EXCEEDED</p>
                                     <p className="text-[10px] text-text-secondary mt-1">
-                                        {">"} Your {stakeProfile?.tier || 'Starter'} tier limit: {formatCurrency(currentTierConfig.orderLimit, 'INR')}<br/>
+                                        {">"}  Your {stakeProfile?.tier || 'Starter'} tier limit: ${maxOrderUsdc} USDC<br/>
                                         {">"} <Link href="/stake" className="text-brand underline">UPGRADE_TIER</Link> to increase limit
                                     </p>
                                 </div>
@@ -220,14 +225,14 @@ export default function BuyPage() {
                     {/* Execute Button */}
                     <button
                         onClick={handleContinue}
-                        disabled={amount === "0" || parseFloat(amount) < 100 || orderExceedsTierLimit}
+                        disabled={amount === "0" || parseFloat(amount) <= 0 || orderExceedsTierLimit}
                         className="w-full mt-6 py-4 bg-brand text-black font-bold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-hover transition-colors font-mono relative overflow-hidden"
                     >
                         <span className="relative z-10">{">"} EXECUTE_ORDER</span>
                         <div className="absolute inset-0 bg-white/20 translate-y-full hover:translate-y-0 transition-transform duration-300" />
                     </button>
                     <p className="text-[10px] text-text-secondary text-center mt-2 uppercase font-mono">
-                        MIN: ₹100 | MAX: {currentTierConfig.orderLimit === Infinity ? 'UNLIMITED' : formatCurrency(currentTierConfig.orderLimit, 'INR')}
+                        {usdcAmount > 0 && usdcAmount < 10 ? 'SMALL ORDER FEE: $0.125 | ' : ''}MAX: ${maxOrderUsdc} USDC
                     </p>
                 </>
             )}

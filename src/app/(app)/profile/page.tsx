@@ -6,11 +6,12 @@ import { useRouter } from "next/navigation"
 import { 
     ChevronLeft, User, Shield, TrendingUp, Award, Clock, 
     CheckCircle, XCircle, AlertTriangle, Copy, ExternalLink,
-    Star, Coins, History, Settings, AtSign, Loader2, Check, LogOut
+    Star, Coins, History, AtSign, Loader2, Check, LogOut
 } from "lucide-react"
 import { useWallet } from "@/hooks/useWallet"
 import { useStaking, TIER_CONFIG, type Tier } from "@/hooks/useStaking"
 import { useTrustScore } from "@/hooks/useTrustScore"
+import { useUserLimits } from "@/hooks/useUserLimits"
 import { useUwuName } from "@/hooks/useUwuName"
 import { useENS } from "@/hooks/useENS"
 import { Badge } from "@/components/ui/badge"
@@ -34,6 +35,7 @@ export default function ProfilePage() {
     const { isConnected, address, balance, displayName, disconnect } = useWallet()
     const { stakeProfile, isLoading: stakeLoading, fetchStakeProfile } = useStaking()
     const { trustData, isLoading: trustLoading } = useTrustScore()
+    const { limitData, isLoading: limitsLoading } = useUserLimits(address || null)
     const { uwuName, isLoading: uwuLoading, register, checkAvailability } = useUwuName(address || undefined)
     const { ensName: ethEnsName, isLoading: ensLoading } = useENS(address || undefined)
     const [mounted, setMounted] = useState(false)
@@ -169,8 +171,62 @@ export default function ProfilePage() {
         )
     }
 
-    const currentTier = stakeProfile?.tier || 'Starter'
-    const trustScore = trustData?.score || 85 // Default score for demo
+    // Calculate tier directly from stake amount (50 = Bronze, 200 = Silver, etc.)
+    const calculateTierFromStake = (stakeAmount: number): typeof TIER_CONFIG[number]['name'] => {
+        for (let i = TIER_CONFIG.length - 1; i >= 0; i--) {
+            if (stakeAmount >= TIER_CONFIG[i].stakeRequired) {
+                return TIER_CONFIG[i].name
+            }
+        }
+        return 'Starter'
+    }
+    
+    // Use recalculated tier to handle any stale hook data
+    const currentTier = stakeProfile?.baseStake 
+        ? calculateTierFromStake(stakeProfile.baseStake) 
+        : (stakeProfile?.tier || 'Starter')
+    
+    // Calculate a meaningful trust score from available data
+    const calculateTrustScore = () => {
+        // Only use contract data if user has actual trades
+        // This prevents showing stale/default contract values
+        if (trustData?.score && trustData.score > 0 && trustData.completedTrades > 0) {
+            return trustData.score
+        }
+        
+        // Calculate from stake profile - start at 0 for new users
+        let score = 0
+        
+        if (stakeProfile) {
+            // +15 for being an LP with stake
+            if (stakeProfile.isLP && stakeProfile.baseStake > 0) score += 15
+            
+            // +5 for each completed trade (max +30)
+            const tradeBonus = Math.min(stakeProfile.completedTrades * 5, 30)
+            score += tradeBonus
+            
+            // Penalty for disputes lost (-10 each, max -30)
+            const disputePenalty = Math.min(stakeProfile.disputesLost * 10, 30)
+            score -= disputePenalty
+            
+            // +5 for each tier above Starter (max +20)
+            const tierIndex = ['Starter', 'Bronze', 'Silver', 'Gold', 'Diamond'].indexOf(stakeProfile.tier)
+            const tierBonus = tierIndex * 5
+            score += Math.min(tierBonus, 20)
+            
+            // +5 for account age > 7 days, +10 for > 30 days
+            if (stakeProfile.memberSince > 0) {
+                const ageInDays = (Date.now() - stakeProfile.memberSince) / (24 * 60 * 60 * 1000)
+                if (ageInDays > 30) score += 10
+                else if (ageInDays > 7) score += 5
+            }
+        }
+        
+        // Ensure score stays in 0-100 range
+        return Math.max(0, Math.min(100, score))
+    }
+    
+    const trustScore = calculateTrustScore()
 
     return (
         <div className="pb-24 pt-6 px-4 max-w-md mx-auto min-h-screen">
@@ -185,9 +241,6 @@ export default function ProfilePage() {
                         <p className="text-[10px] text-text-secondary uppercase">IDENTITY_MODULE_V2</p>
                     </div>
                 </div>
-                <Link href="/settings" className="p-2 text-text-secondary hover:text-brand">
-                    <Settings className="w-5 h-5" />
-                </Link>
             </div>
 
             {/* Profile Card */}
@@ -390,14 +443,14 @@ export default function ProfilePage() {
                         <span className="text-text-secondary">Completed Trades</span>
                         <span className="text-text-primary font-medium flex items-center gap-1">
                             <CheckCircle className="w-3 h-3 text-green-500" />
-                            {stakeProfile?.completedTrades || 12}
+                            {stakeProfile?.completedTrades || 0}
                         </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                         <span className="text-text-secondary">Disputes Won</span>
                         <span className="text-text-primary font-medium flex items-center gap-1">
                             <Shield className="w-3 h-3 text-blue-500" />
-                            {Math.max(0, (trustData?.disputes || 2) - (trustData?.disputesLost || 0))}
+                            {Math.max(0, (stakeProfile?.totalDisputes || 0) - (stakeProfile?.disputesLost || 0))}
                         </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
@@ -411,7 +464,10 @@ export default function ProfilePage() {
                         <span className="text-text-secondary">Account Age</span>
                         <span className="text-text-primary font-medium flex items-center gap-1">
                             <Clock className="w-3 h-3 text-purple-500" />
-                            {trustData?.accountAge ? `${trustData.accountAge} days` : '45 days'}
+                            {stakeProfile?.memberSince 
+                                ? `${Math.floor((Date.now() - stakeProfile.memberSince) / (1000 * 60 * 60 * 24))} days`
+                                : 'New'
+                            }
                         </span>
                     </div>
                 </div>
@@ -432,9 +488,11 @@ export default function ProfilePage() {
                         </div>
                     </div>
                     <div className="bg-background/50 rounded-lg p-3">
-                        <div className="text-xs text-text-secondary uppercase mb-1">Trading Limit</div>
+                        <div className="text-xs text-text-secondary uppercase mb-1">Max Order</div>
                         <div className="text-lg font-bold text-text-primary">
-                            ₹{stakeProfile?.tradingLimit.toLocaleString() || '5,000'}
+                            ${(stakeProfile?.baseStake && stakeProfile.baseStake > 0) 
+                                ? stakeProfile.baseStake.toFixed(0) 
+                                : (limitData?.maxOrder || 150)} USDC
                         </div>
                     </div>
                 </div>
@@ -442,23 +500,25 @@ export default function ProfilePage() {
                 {/* Tier Progress */}
                 <div className="space-y-3">
                     {TIER_CONFIG.slice(0, 4).map((tier, index) => {
+                        const currentTierIndex = TIER_CONFIG.findIndex(t => t.name === currentTier)
                         const isCurrentTier = tier.name === currentTier
-                        const isPastTier = TIER_CONFIG.findIndex(t => t.name === currentTier) > index
+                        const isPastTier = currentTierIndex > index
+                        const isUnlocked = isPastTier || isCurrentTier
                         
                         return (
                             <div key={tier.name} className="flex items-center gap-3">
                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                                    isPastTier || isCurrentTier ? getTierColor(tier.name) : 'bg-border'
+                                    isUnlocked ? getTierColor(tier.name) : 'bg-border'
                                 }`}>
-                                    {isPastTier ? (
+                                    {isUnlocked ? (
                                         <CheckCircle className="w-4 h-4 text-white" />
                                     ) : (
                                         <span className="text-xs text-white">{index + 1}</span>
                                     )}
                                 </div>
                                 <div className="flex-1">
-                                    <div className={`text-sm ${isCurrentTier ? 'text-text-primary font-medium' : 'text-text-secondary'}`}>
-                                        {tier.name}
+                                    <div className={`text-sm ${isCurrentTier ? 'text-text-primary font-bold' : isPastTier ? 'text-text-primary' : 'text-text-secondary'}`}>
+                                        {tier.name} {isCurrentTier && <span className="text-brand text-xs">(Current)</span>}
                                     </div>
                                 </div>
                                 <div className="text-xs text-text-secondary">

@@ -3,53 +3,116 @@
 import { useState, useEffect, useCallback } from 'react'
 
 /**
- * User Daily Limits based on Trust Level
+ * User Order Limits - Progressive system based on completed trades
  * 
- * - New users: $150/day
- * - Established (50+ trades): $300/day  
- * - High trust (100+ trades, 0 disputes): $750/day
+ * Tier System:
+ * - New (0 trades): $150 max order
+ * - Regular (5+ trades): $250 max order
+ * - Trusted (15+ trades): $350 max order
+ * - Verified (50+ trades): $500 max order (cap)
+ * 
+ * This is SEPARATE from LP tiers where stake = max order
  */
 
-export interface UserLimits {
-    dailyLimit: number           // In USDC (6 decimals)
-    dailyUsed: number
-    dailyRemaining: number
-    trustLevel: TrustLevel
-    canTrade: boolean
-    nextResetAt: number          // Midnight UTC
+export interface UserTier {
+    name: 'New' | 'Regular' | 'Trusted' | 'Verified'
+    minTrades: number
+    maxOrder: number  // USDC
+    color: string
 }
 
-export type TrustLevel = 'new' | 'established' | 'high_trust'
+export const USER_TIERS: UserTier[] = [
+    { name: 'New', minTrades: 0, maxOrder: 150, color: 'gray' },
+    { name: 'Regular', minTrades: 5, maxOrder: 250, color: 'blue' },
+    { name: 'Trusted', minTrades: 15, maxOrder: 350, color: 'green' },
+    { name: 'Verified', minTrades: 50, maxOrder: 500, color: 'purple' },
+]
 
-export const DAILY_LIMITS = {
-    new: 150_000000,           // $150
-    established: 300_000000,   // $300
-    high_trust: 750_000000     // $750
-}
+export const USER_MAX_ORDER_CAP = 500  // Maximum ever for users
 
-export const TRUST_THRESHOLDS = {
-    ESTABLISHED: 50,           // 50+ completed trades
-    HIGH_TRUST: 100            // 100+ trades, 0 disputes lost
-}
-
-interface UserStats {
-    completedOrders: number
+export interface UserLimitData {
+    tier: UserTier
+    maxOrder: number       // USDC
+    completedTrades: number
     disputesLost: number
-    dailyVolume: number
-    dailyVolumeDate: number    // Day number
+    nextTier: UserTier | null
+    progressToNextTier: number  // 0-100%
+    tradesUntilNextTier: number
 }
 
 /**
- * Hook for managing user daily limits
+ * Get user tier based on completed trades
  */
-export function useUserDailyLimits(userAddress: string | null) {
-    const [limits, setLimits] = useState<UserLimits | null>(null)
+export function getUserTier(completedTrades: number): UserTier {
+    for (let i = USER_TIERS.length - 1; i >= 0; i--) {
+        if (completedTrades >= USER_TIERS[i].minTrades) {
+            return USER_TIERS[i]
+        }
+    }
+    return USER_TIERS[0]
+}
+
+/**
+ * Get next tier for user
+ */
+export function getNextUserTier(currentTier: UserTier): UserTier | null {
+    const currentIndex = USER_TIERS.findIndex(t => t.name === currentTier.name)
+    if (currentIndex >= USER_TIERS.length - 1) return null
+    return USER_TIERS[currentIndex + 1]
+}
+
+/**
+ * Calculate progress to next tier
+ */
+export function getProgressToNextTier(completedTrades: number, currentTier: UserTier): number {
+    const nextTier = getNextUserTier(currentTier)
+    if (!nextTier) return 100
+    
+    const tradesInCurrentTier = completedTrades - currentTier.minTrades
+    const tradesNeededForNext = nextTier.minTrades - currentTier.minTrades
+    
+    return Math.min(100, Math.round((tradesInCurrentTier / tradesNeededForNext) * 100))
+}
+
+/**
+ * Calculate user's max order limit based on their trade history
+ */
+export function calculateUserMaxOrder(stats: {
+    completedTrades: number
+    disputesLost: number
+    recentTrades?: number
+}): number {
+    const { completedTrades, disputesLost, recentTrades = 0 } = stats
+    
+    const tier = getUserTier(completedTrades)
+    let maxOrder = tier.maxOrder
+    
+    // Penalty for disputes: -$50 per dispute lost (min $50 order limit)
+    if (disputesLost > 0) {
+        const penalty = disputesLost * 50
+        maxOrder = Math.max(50, maxOrder - penalty)
+    }
+    
+    // Bonus for recent activity: +$25 per 10 trades in last 30 days (max +$100)
+    if (recentTrades > 0) {
+        const bonus = Math.min(100, Math.floor(recentTrades / 10) * 25)
+        maxOrder = Math.min(USER_MAX_ORDER_CAP, maxOrder + bonus)
+    }
+    
+    return Math.min(USER_MAX_ORDER_CAP, maxOrder)
+}
+
+/**
+ * Hook for user order limits
+ */
+export function useUserLimits(userAddress: string | null) {
+    const [limitData, setLimitData] = useState<UserLimitData | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<Error | null>(null)
 
     const fetchLimits = useCallback(async () => {
         if (!userAddress) {
-            setLimits(null)
+            setLimitData(null)
             setIsLoading(false)
             return
         }
@@ -59,23 +122,37 @@ export function useUserDailyLimits(userAddress: string | null) {
             if (!response.ok) throw new Error('Failed to fetch limits')
             
             const data = await response.json()
-            setLimits(data)
+            
+            const tier = getUserTier(data.completedTrades || 0)
+            const nextTier = getNextUserTier(tier)
+            
+            setLimitData({
+                tier,
+                maxOrder: calculateUserMaxOrder({
+                    completedTrades: data.completedTrades || 0,
+                    disputesLost: data.disputesLost || 0,
+                    recentTrades: data.recentTrades || 0,
+                }),
+                completedTrades: data.completedTrades || 0,
+                disputesLost: data.disputesLost || 0,
+                nextTier,
+                progressToNextTier: getProgressToNextTier(data.completedTrades || 0, tier),
+                tradesUntilNextTier: nextTier ? nextTier.minTrades - (data.completedTrades || 0) : 0,
+            })
             setError(null)
         } catch (err) {
             console.error('Error fetching user limits:', err)
             setError(err as Error)
             
-            // Fallback to default new user limits
-            const today = Math.floor(Date.now() / (24 * 60 * 60 * 1000))
-            const nextMidnight = (today + 1) * 24 * 60 * 60 * 1000
-            
-            setLimits({
-                dailyLimit: DAILY_LIMITS.new,
-                dailyUsed: 0,
-                dailyRemaining: DAILY_LIMITS.new,
-                trustLevel: 'new',
-                canTrade: true,
-                nextResetAt: nextMidnight
+            const defaultTier = USER_TIERS[0]
+            setLimitData({
+                tier: defaultTier,
+                maxOrder: defaultTier.maxOrder,
+                completedTrades: 0,
+                disputesLost: 0,
+                nextTier: USER_TIERS[1],
+                progressToNextTier: 0,
+                tradesUntilNextTier: USER_TIERS[1].minTrades,
             })
         } finally {
             setIsLoading(false)
@@ -86,131 +163,32 @@ export function useUserDailyLimits(userAddress: string | null) {
         fetchLimits()
     }, [fetchLimits])
 
-    /**
-     * Check if user can make an order of given amount
-     */
-    const canMakeOrder = useCallback((amount: number): boolean => {
-        if (!limits) return false
-        return amount <= limits.dailyRemaining
-    }, [limits])
-
-    /**
-     * Get trust level from user stats
-     */
-    const getTrustLevel = useCallback((stats: UserStats): TrustLevel => {
-        if (stats.completedOrders >= TRUST_THRESHOLDS.HIGH_TRUST && stats.disputesLost === 0) {
-            return 'high_trust'
-        }
-        if (stats.completedOrders >= TRUST_THRESHOLDS.ESTABLISHED) {
-            return 'established'
-        }
-        return 'new'
-    }, [])
+    const canMakeOrder = useCallback((amountUsdc: number): boolean => {
+        if (!limitData) return false
+        return amountUsdc <= limitData.maxOrder
+    }, [limitData])
 
     return {
-        limits,
+        limitData,
         isLoading,
         error,
         canMakeOrder,
-        getTrustLevel,
-        refresh: fetchLimits
+        refresh: fetchLimits,
+        getUserTier,
+        calculateUserMaxOrder,
     }
 }
 
-/**
- * Calculate daily limit from user stats
- */
-export function calculateDailyLimit(stats: UserStats): number {
-    if (stats.completedOrders >= TRUST_THRESHOLDS.HIGH_TRUST && stats.disputesLost === 0) {
-        return DAILY_LIMITS.high_trust
+export function getTierColorClass(tier: UserTier): string {
+    const colors: Record<string, string> = {
+        gray: 'text-gray-400',
+        blue: 'text-blue-400',
+        green: 'text-green-400',
+        purple: 'text-purple-400',
     }
-    if (stats.completedOrders >= TRUST_THRESHOLDS.ESTABLISHED) {
-        return DAILY_LIMITS.established
-    }
-    return DAILY_LIMITS.new
+    return colors[tier.color] || 'text-gray-400'
 }
 
-/**
- * Format limit for display (USDC has 6 decimals)
- */
-export function formatLimit(amount: number): string {
-    return `$${(amount / 1_000000).toFixed(0)}`
-}
-
-/**
- * Get trust level label
- */
-export function getTrustLevelLabel(level: TrustLevel): string {
-    const labels: Record<TrustLevel, string> = {
-        new: 'New User',
-        established: 'Established',
-        high_trust: 'High Trust'
-    }
-    return labels[level]
-}
-
-/**
- * Get trust level color
- */
-export function getTrustLevelColor(level: TrustLevel): 'default' | 'success' | 'warning' {
-    const colors: Record<TrustLevel, 'default' | 'success' | 'warning'> = {
-        new: 'default',
-        established: 'warning',
-        high_trust: 'success'
-    }
-    return colors[level]
-}
-
-/**
- * Get progress to next trust level
- */
-export function getProgressToNextLevel(stats: UserStats): {
-    currentLevel: TrustLevel
-    nextLevel: TrustLevel | null
-    progress: number
-    tradesNeeded: number
-} {
-    const level = stats.completedOrders >= TRUST_THRESHOLDS.HIGH_TRUST && stats.disputesLost === 0
-        ? 'high_trust'
-        : stats.completedOrders >= TRUST_THRESHOLDS.ESTABLISHED
-            ? 'established'
-            : 'new'
-    
-    if (level === 'high_trust') {
-        return {
-            currentLevel: 'high_trust',
-            nextLevel: null,
-            progress: 100,
-            tradesNeeded: 0
-        }
-    }
-    
-    if (level === 'established') {
-        // Progress to high trust (need 100 trades + 0 disputes)
-        if (stats.disputesLost > 0) {
-            return {
-                currentLevel: 'established',
-                nextLevel: null,  // Can't reach high trust with disputes
-                progress: 0,
-                tradesNeeded: 0
-            }
-        }
-        const progress = ((stats.completedOrders - TRUST_THRESHOLDS.ESTABLISHED) / 
-            (TRUST_THRESHOLDS.HIGH_TRUST - TRUST_THRESHOLDS.ESTABLISHED)) * 100
-        return {
-            currentLevel: 'established',
-            nextLevel: 'high_trust',
-            progress: Math.min(100, progress),
-            tradesNeeded: Math.max(0, TRUST_THRESHOLDS.HIGH_TRUST - stats.completedOrders)
-        }
-    }
-    
-    // New user -> Established
-    const progress = (stats.completedOrders / TRUST_THRESHOLDS.ESTABLISHED) * 100
-    return {
-        currentLevel: 'new',
-        nextLevel: 'established',
-        progress: Math.min(100, progress),
-        tradesNeeded: Math.max(0, TRUST_THRESHOLDS.ESTABLISHED - stats.completedOrders)
-    }
+export function formatMaxOrder(amount: number): string {
+    return `$${amount}`
 }

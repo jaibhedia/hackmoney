@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ChevronLeft, Clock, Check, AlertTriangle, X, Loader2, RefreshCw, Terminal, Shield } from "lucide-react"
+import { ChevronLeft, Clock, Check, AlertTriangle, X, Loader2, RefreshCw, Terminal, Shield, Trash2 } from "lucide-react"
 import { BottomNav } from "@/components/app/bottom-nav"
 import { useWallet } from "@/hooks/useWallet"
 import { Order } from "@/app/api/orders/sse/route"
@@ -13,7 +13,39 @@ import { TrustBadge } from "@/components/app/trust-score-card"
  * User Orders Page
  * 
  * Shows all orders created by the user (transaction logs)
+ * Uses localStorage as backup since server orders are in-memory
  */
+
+// Helper to get orders from localStorage
+const getLocalOrders = (address: string): Order[] => {
+    if (typeof window === 'undefined') return []
+    try {
+        const stored = localStorage.getItem(`uwu_orders_${address.toLowerCase()}`)
+        return stored ? JSON.parse(stored) : []
+    } catch {
+        return []
+    }
+}
+
+// Helper to save order to localStorage
+export const saveOrderToLocal = (address: string, order: Order) => {
+    if (typeof window === 'undefined') return
+    try {
+        const orders = getLocalOrders(address)
+        // Check if order already exists and update it, or add new
+        const existing = orders.findIndex(o => o.id === order.id)
+        if (existing >= 0) {
+            orders[existing] = order
+        } else {
+            orders.unshift(order)
+        }
+        // Keep only last 50 orders
+        const trimmed = orders.slice(0, 50)
+        localStorage.setItem(`uwu_orders_${address.toLowerCase()}`, JSON.stringify(trimmed))
+    } catch (e) {
+        console.warn('[Orders] Failed to save to localStorage:', e)
+    }
+}
 
 export default function OrdersPage() {
     const { isConnected, address } = useWallet()
@@ -24,18 +56,58 @@ export default function OrdersPage() {
     const [disputeReason, setDisputeReason] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
 
-    // Fetch user's orders
+    // Clear all logs
+    const clearLogs = async () => {
+        if (!address) return
+        if (!confirm('Clear all order logs? This cannot be undone.')) return
+        
+        // Clear localStorage
+        localStorage.removeItem(`uwu_orders_${address.toLowerCase()}`)
+        
+        // Clear from API
+        try {
+            await fetch(`/api/orders?userId=${address}`, { method: 'DELETE' })
+        } catch (e) {
+            console.warn('Failed to clear server logs:', e)
+        }
+        
+        setOrders([])
+    }
+
+    // Fetch user's orders (API + localStorage fallback)
     const fetchOrders = async () => {
         if (!address) return
 
         try {
+            // Get from API
             const res = await fetch(`/api/orders?userId=${address}`)
             const data = await res.json()
-            if (data.success) {
-                setOrders(data.orders || [])
+            const apiOrders: Order[] = data.success ? (data.orders || []) : []
+            
+            // Get from localStorage as backup
+            const localOrders = getLocalOrders(address)
+            
+            // Merge: API orders take precedence, but include local orders not in API
+            const apiOrderIds = new Set(apiOrders.map(o => o.id))
+            const mergedOrders = [
+                ...apiOrders,
+                ...localOrders.filter(o => !apiOrderIds.has(o.id))
+            ]
+            
+            // Sort by createdAt descending
+            mergedOrders.sort((a, b) => b.createdAt - a.createdAt)
+            
+            setOrders(mergedOrders)
+            
+            // Update localStorage with merged data
+            if (mergedOrders.length > 0) {
+                localStorage.setItem(`uwu_orders_${address.toLowerCase()}`, JSON.stringify(mergedOrders.slice(0, 50)))
             }
         } catch (error) {
-            console.error("Failed to fetch orders:", error)
+            console.error("Failed to fetch orders from API:", error)
+            // Fall back to localStorage only
+            const localOrders = getLocalOrders(address)
+            setOrders(localOrders)
         } finally {
             setIsLoading(false)
         }
@@ -137,9 +209,14 @@ export default function OrdersPage() {
                     <h1 className="text-lg font-bold uppercase text-brand">SYSTEM_LOGS</h1>
                     <p className="text-[10px] text-text-secondary uppercase">TRANSACTION_HISTORY</p>
                 </div>
-                <button onClick={fetchOrders} className="p-2 text-text-secondary hover:text-brand transition-colors">
-                    <RefreshCw className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                    <button onClick={clearLogs} className="p-2 text-text-secondary hover:text-error transition-colors" title="Clear logs">
+                        <Trash2 className="w-4 h-4" />
+                    </button>
+                    <button onClick={fetchOrders} className="p-2 text-text-secondary hover:text-brand transition-colors">
+                        <RefreshCw className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
 
             {isLoading ? (
@@ -199,11 +276,11 @@ export default function OrdersPage() {
                                     </span>
                                 </div>
 
-                                {/* Dispute countdown */}
-                                {order.status === 'payment_sent' && order.disputePeriodEndsAt && (
+                                {/* Dispute countdown - for completed orders in 24hr window */}
+                                {(order.status === 'payment_sent' || order.status === 'completed') && order.disputePeriodEndsAt && order.disputePeriodEndsAt > Date.now() && (
                                     <div className="mt-2 text-[10px] text-warning uppercase font-mono flex items-center gap-1 animate-pulse">
                                         <Clock className="w-3 h-3" />
-                                        DISPUTE_WINDOW_CLOSING: {getDisputeCountdown(order.disputePeriodEndsAt)}
+                                        DISPUTE_WINDOW: {getDisputeCountdown(order.disputePeriodEndsAt)}
                                     </div>
                                 )}
                             </button>
@@ -283,22 +360,24 @@ export default function OrdersPage() {
                                 </div>
                             )}
 
-                            {/* Dispute Period Countdown */}
-                            {selectedOrder.status === 'payment_sent' && selectedOrder.disputePeriodEndsAt && (
+                            {/* Dispute Period Countdown - for completed orders within 24hr window */}
+                            {(selectedOrder.status === 'payment_sent' || selectedOrder.status === 'completed') && 
+                             selectedOrder.disputePeriodEndsAt && selectedOrder.disputePeriodEndsAt > Date.now() && (
                                 <div className="bg-warning/10 border border-warning/30 p-4 mb-6 text-center">
                                     <p className="text-xs font-bold text-warning uppercase mb-1 animate-pulse">DISPUTE_WINDOW_ACTIVE</p>
                                     <p className="text-[10px] text-text-secondary uppercase">
                                         TIME_REMAINING: {getDisputeCountdown(selectedOrder.disputePeriodEndsAt)}
                                     </p>
                                     <p className="text-[10px] text-text-secondary mt-2 border-t border-warning/20 pt-2">
-                                        {">"} IF_FUNDS_MISSING_INITIATE_DISPUTE<br />
-                                        {">"} OTHERWISE_AUTO_SETTLES
+                                        {">"} LP_PAID_INSTANTLY. IF_ISSUE_RAISE_DISPUTE<br />
+                                        {">"} 4HR_ADDRESSAL_SLA | 24HR_DISPUTE_WINDOW
                                     </p>
                                 </div>
                             )}
 
-                            {/* Actions */}
-                            {selectedOrder.status === 'payment_sent' && (
+                            {/* Actions - Allow dispute for completed orders within 24hr window */}
+                            {(selectedOrder.status === 'payment_sent' || 
+                              (selectedOrder.status === 'completed' && selectedOrder.disputePeriodEndsAt && selectedOrder.disputePeriodEndsAt > Date.now())) && (
                                 <button
                                     onClick={() => setShowDispute(true)}
                                     className="w-full py-3 border border-error text-error hover:bg-error hover:text-white font-bold uppercase text-xs mb-3 transition-colors"

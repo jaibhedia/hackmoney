@@ -6,7 +6,7 @@ import { NextRequest } from "next/server"
 export interface Order {
     id: string
     type: "buy" | "sell"
-    status: "created" | "matched" | "payment_pending" | "payment_sent" | "completed" | "disputed" | "cancelled" | "expired" | "settled"
+    status: "created" | "matched" | "payment_pending" | "payment_sent" | "completed" | "disputed" | "cancelled" | "expired" | "settled" | "verifying"
     userId: string
     userAddress: string
     amountUsdc: number
@@ -22,9 +22,10 @@ export interface Order {
     solverId?: string
     solverAddress?: string
     paymentSentAt?: number     // When LP marked payment sent
-    disputePeriodEndsAt?: number // 24hrs after payment_sent
+    disputePeriodEndsAt?: number // 24hrs after payment_sent - user can dispute
+    stakeLockExpiresAt?: number  // 24hrs after completion - LP stake unlocks
     completedAt?: number
-    settledAt?: number         // When USDC released to LP
+    settledAt?: number         // When USDC released to LP (now immediate)
 }
 
 // In-memory store for orders (replace with database in production)

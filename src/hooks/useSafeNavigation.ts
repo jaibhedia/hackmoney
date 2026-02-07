@@ -32,8 +32,8 @@ export function useSafeNavigation() {
         if (pathname.startsWith("/solver")) return "/dashboard"
         if (pathname.startsWith("/lp")) return "/dashboard"
         
-        // Arbitrator routes
-        if (pathname.startsWith("/arbitrator")) return "/dashboard"
+        // DAO routes
+        if (pathname.startsWith("/dao")) return "/dashboard"
         
         // Transaction routes - go back to dashboard
         if (pathname.startsWith("/buy")) return "/dashboard"
@@ -46,9 +46,6 @@ export function useSafeNavigation() {
         
         // Orders
         if (pathname.startsWith("/orders")) return "/dashboard"
-        
-        // Settings
-        if (pathname.startsWith("/settings")) return "/dashboard"
         
         // Default
         return "/dashboard"
@@ -70,8 +67,8 @@ export function useSafeNavigation() {
         }
         
         // Check arbitrator routes
-        if (route.startsWith("/arbitrator") && !isArbitrator) {
-            console.warn("[SafeNav] Non-arbitrator tried to access DAO route")
+        if (route.startsWith("/dao") && !isArbitrator) {
+            console.warn("[SafeNav] Non-validator tried to access DAO route")
             router.replace("/dashboard")
             return
         }

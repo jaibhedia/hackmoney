@@ -169,12 +169,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                     })
                     return wallet
                 })
-            } else if (method === "email" && email) {
-                // Email requires OTP verification - not supported in single-step connect
-                // Use Thirdweb's prebuilt UI for email auth or implement OTP flow
-                console.log("[Wallet] Email auth requires OTP flow - use Google or Apple for now")
-                throw new Error("Email auth requires OTP verification")
             }
+            // Email auth removed - requires OTP flow, use Google or Apple
 
             // Address will be set by the useEffect watching account.address
             return true
@@ -188,6 +184,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     // Disconnect
     const disconnect = useCallback(() => {
         thirdwebDisconnect(inAppWallet())
+        // Clear LP active status on logout
+        if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('lp_active_status')
+        }
         setState({
             address: null,
             isConnected: false,

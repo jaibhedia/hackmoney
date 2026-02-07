@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { ChevronLeft, Power, Check, Upload, Clock, AlertTriangle, Loader2, X, DollarSign, History, Gift, Camera, Home } from "lucide-react"
+import { ChevronLeft, Power, Check, Upload, Clock, AlertTriangle, Loader2, X, DollarSign, History, Gift, Home } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { BottomNav } from "@/components/app/bottom-nav"
 import { QRScanner } from "@/components/app/qr-scanner"
 import { WalletConnect } from "@/components/app/wallet-connect"
 import { useWallet } from "@/hooks/useWallet"
+import { useStaking } from "@/hooks/useStaking"
 import { formatCurrency } from "@/lib/currency-converter"
 import { Order } from "@/app/api/orders/sse/route"
 import { useSafeNavigation } from "@/hooks/useSafeNavigation"
@@ -19,7 +20,8 @@ import { useSafeNavigation } from "@/hooks/useSafeNavigation"
  * 2. See live order feed with user QR codes
  * 3. Accept order -> View user's QR
  * 4. Pay the QR -> Upload payment screenshot
- * 5. Wait 24hr dispute period -> Receive USDC + 2% reward
+ * 5. IMMEDIATE SETTLEMENT: Receive USDC + reward instantly
+ *    (Stake locked for 24hr in case of dispute, 4hr SLA for resolution)
  */
 
 export default function SolverPage() {
@@ -27,8 +29,9 @@ export default function SolverPage() {
     const { goBack, goHome, isLP } = useSafeNavigation()
     const fileInputRef = useRef<HTMLInputElement>(null)
     const { isConnected, address, balance, displayName, isLoading: walletLoading } = useWallet()
+    const { stakeProfile, fetchStakeProfile } = useStaking()
     const [mounted, setMounted] = useState(false)
-    const [isActive, setIsActive] = useState(false)
+    const [isActive, setIsActiveState] = useState(false)
     const [orders, setOrders] = useState<Order[]>([])
     const [acceptedOrder, setAcceptedOrder] = useState<Order | null>(null)
     const [paymentProof, setPaymentProof] = useState<string | null>(null)
@@ -41,10 +44,57 @@ export default function SolverPage() {
     const [upiId, setUpiId] = useState("") // LP can enter UPI ID manually
     const [showScanner, setShowScanner] = useState(false) // For live camera QR scanning
     const [scannedQrData, setScannedQrData] = useState<string | null>(null) // Scanned UPI data
+    const [lockedStake, setLockedStake] = useState(0) // USDC locked in 24hr window
 
+    // Initialize active state from sessionStorage on mount
     useEffect(() => {
         setMounted(true)
+        const savedActive = sessionStorage.getItem('lp_active_status')
+        if (savedActive === 'true') {
+            setIsActiveState(true)
+        }
     }, [])
+
+    // Fetch stake profile and locked stake on mount
+    useEffect(() => {
+        if (address) {
+            fetchStakeProfile()
+        }
+    }, [address, fetchStakeProfile])
+
+    // Calculate locked stake from recent orders (24hr window)
+    useEffect(() => {
+        if (!address || myOrders.length === 0) {
+            setLockedStake(0)
+            return
+        }
+        
+        const now = Date.now()
+        let locked = 0
+        
+        myOrders.forEach(order => {
+            // Orders still in progress lock their amount
+            if (["matched", "payment_pending", "verifying"].includes(order.status)) {
+                locked += order.amountUsdc
+            }
+            // Completed orders in 24hr window lock stake
+            if (order.status === "completed" && order.stakeLockExpiresAt && order.stakeLockExpiresAt > now) {
+                locked += order.amountUsdc
+            }
+        })
+        
+        setLockedStake(locked)
+    }, [address, myOrders])
+
+    // Available stake = total stake - locked
+    const totalStake = stakeProfile?.baseStake || 0
+    const availableStake = Math.max(0, totalStake - lockedStake)
+
+    // Wrapper to persist active state to sessionStorage
+    const setIsActive = (value: boolean) => {
+        setIsActiveState(value)
+        sessionStorage.setItem('lp_active_status', value.toString())
+    }
 
     // Fetch active orders when LP is active
     useEffect(() => {
@@ -85,9 +135,11 @@ export default function SolverPage() {
                 if (data.success && data.orders?.length > 0) {
                     setMyOrders(data.orders)
                     const pending = data.orders.find((o: Order) =>
-                        o.status === "matched" || o.status === "payment_pending" || o.status === "payment_sent"
+                        o.status === "matched" || o.status === "payment_pending" || o.status === "verifying"
                     )
-                    const settled = data.orders.find((o: Order) => o.status === "settled")
+                    const settled = data.orders.find((o: Order) => 
+                        o.status === "settled" || o.status === "completed"
+                    )
 
                     if (pending && isMounted) {
                         setAcceptedOrder(pending)
@@ -99,11 +151,14 @@ export default function SolverPage() {
                                 setStep("waiting_qr")
                             } else if (pending.status === "payment_pending" || (pending.status === "matched" && pending.qrImage)) {
                                 setStep("pay")
-                            } else if (pending.status === "payment_sent") {
+                            } else if (pending.status === "verifying") {
+                                // DAO validators are reviewing — show pending step
                                 setStep("pending")
                             }
                         }
-                    } else if (settled && step === "pending" && isMounted) {
+                    } else if (settled && isMounted && step !== "settled" && step !== "browse") {
+                        // Order completed - show success
+                        // But don't override if user is back at browse (clicked continue)
                         setAcceptedOrder(settled)
                         setStep("settled")
                     }
@@ -144,42 +199,14 @@ export default function SolverPage() {
         return () => clearInterval(interval)
     }, [step, acceptedOrder?.disputePeriodEndsAt])
 
-    // Test settlement (for demo - skips 24hr wait)
-    const handleTestSettle = async () => {
-        if (!acceptedOrder) return
-
-        setIsSubmitting(true)
-        try {
-            const res = await fetch("/api/settlement", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    orderId: acceptedOrder.id,
-                    skipDispute: true, // Skip 24hr for testing
-                }),
-            })
-
-            const data = await res.json()
-            if (data.success) {
-                // USDC is transferred on-chain by the escrow contract
-                // Balance will auto-update via useWalletBalance
-                console.log(`[Solver] Settlement complete, received ${acceptedOrder.amountUsdc} USDC`)
-                setAcceptedOrder(data.order)
-                setStep("settled")
-            } else {
-                console.error("Settlement failed:", data.error)
-                alert("Settlement failed: " + (data.error || "Unknown error"))
-            }
-        } catch (error) {
-            console.error("Settlement failed:", error)
-            alert("Settlement failed - please try again")
-        } finally {
-            setIsSubmitting(false)
-        }
-    }
-
     const handleAcceptOrder = async (order: Order) => {
         if (!address) return
+
+        // Check if LP has enough available stake
+        if (order.amountUsdc > availableStake) {
+            alert(`Insufficient available stake!\n\nOrder: $${order.amountUsdc} USDC\nAvailable: $${availableStake.toFixed(2)} USDC\nLocked: $${lockedStake.toFixed(2)} USDC (in 24hr dispute window)\n\nWait for pending orders to clear or stake more USDC.`)
+            return
+        }
 
         setIsSubmitting(true)
         try {
@@ -241,6 +268,7 @@ export default function SolverPage() {
             const data = await res.json()
             if (data.success) {
                 setAcceptedOrder(data.order)
+                // DAO validation — go to pending (verifying) step
                 setStep("pending")
             }
         } catch (error) {
@@ -315,23 +343,27 @@ export default function SolverPage() {
                     [BACK]
                 </button>
                 <div className="text-center">
-                    <h1 className="text-lg font-bold uppercase text-brand">LP_TERMINAL</h1>
-                    <p className="text-[10px] text-text-secondary uppercase">MODE: LIQUIDITY_SOLVER</p>
+                    <h1 className="text-lg font-bold uppercase text-warning">LP_TERMINAL</h1>
+                    <p className="text-[10px] text-text-secondary uppercase">FULFILL ORDERS • EARN YIELD</p>
                 </div>
                 <button onClick={goHome} className="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-brand">
                     <Home className="w-4 h-4" />
                 </button>
             </div>
 
-            {/* Balance & Earnings (Data Grid) */}
-            <div className="grid grid-cols-2 gap-px bg-border border border-border mb-6">
-                <div className="bg-black p-4">
-                    <p className="text-[10px] text-text-secondary uppercase mb-1">AVAILABLE_LIQUIDITY</p>
-                    <p className="text-xl font-bold font-mono text-white">${balance.toFixed(2)}</p>
+            {/* Balance & Stake Info (Data Grid) */}
+            <div className="grid grid-cols-3 gap-px bg-border border border-border mb-6">
+                <div className="bg-black p-3">
+                    <p className="text-[10px] text-text-secondary uppercase mb-1">AVAILABLE_STAKE</p>
+                    <p className="text-lg font-bold font-mono text-success">${availableStake.toFixed(2)}</p>
                 </div>
-                <div className="bg-black p-4">
+                <div className="bg-black p-3">
+                    <p className="text-[10px] text-text-secondary uppercase mb-1">LOCKED_24HR</p>
+                    <p className="text-lg font-bold font-mono text-warning">${lockedStake.toFixed(2)}</p>
+                </div>
+                <div className="bg-black p-3">
                     <p className="text-[10px] text-text-secondary uppercase mb-1">YIELD_RATE</p>
-                    <p className="text-xl font-bold font-mono text-success">+2.0%</p>
+                    <p className="text-lg font-bold font-mono text-brand">+{(stakeProfile?.tier === 'Diamond' ? 3.5 : stakeProfile?.tier === 'Gold' ? 3 : stakeProfile?.tier === 'Silver' ? 2.5 : 2).toFixed(1)}%</p>
                 </div>
             </div>
 
@@ -342,7 +374,7 @@ export default function SolverPage() {
                     <div className={`p-4 mb-6 border ${isActive ? "border-success bg-success/5" : "border-border bg-card"}`}>
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-xs font-bold uppercase tracking-wider">
-                                SYSTEM_STATUS: {isActive ? <span className="text-success">ONLINE</span> : <span className="text-text-secondary">STANDBY</span>}
+                                Status: {isActive ? <span className="text-success">ACTIVE</span> : <span className="text-text-secondary">OFFLINE</span>}
                             </span>
                             <button
                                 onClick={() => setIsActive(!isActive)}
@@ -352,61 +384,125 @@ export default function SolverPage() {
                             </button>
                         </div>
                         <p className="text-[10px] text-text-secondary font-mono">
-                            {isActive ? "> RECEIVING_LIVE_ORDERS..." : "> SYSTEM_OFFLINE. ENABLE_TO_START_EARNING."}
+                            {isActive ? "Receiving live orders from users..." : "Go active to start receiving orders"}
                         </p>
                     </div>
 
                     {isActive && (
                         <>
                             <div className="flex items-center justify-between mb-3 px-1">
-                                <h2 className="text-xs font-bold uppercase text-text-secondary">INCOMING_FEED ({orders.length})</h2>
-                                <span className="text-[10px] text-brand animate-pulse">● LIVE</span>
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => setShowHistory(false)}
+                                        className={`text-xs font-bold uppercase ${!showHistory ? 'text-brand' : 'text-text-secondary'}`}
+                                    >
+                                        Incoming ({orders.length})
+                                    </button>
+                                    <button
+                                        onClick={() => setShowHistory(true)}
+                                        className={`text-xs font-bold uppercase ${showHistory ? 'text-brand' : 'text-text-secondary'}`}
+                                    >
+                                        History ({myOrders.filter(o => ['completed', 'settled', 'disputed'].includes(o.status)).length})
+                                    </button>
+                                </div>
+                                {!showHistory && <span className="text-[10px] text-brand animate-pulse">● LIVE</span>}
                             </div>
 
-                            {orders.length === 0 ? (
-                                <div className="border border-border border-dashed p-8 text-center bg-surface/20">
-                                    <div className="inline-block p-3 rounded-full bg-surface mb-2">
-                                        <Clock className="w-6 h-6 text-text-secondary animate-spin-slow" />
-                                    </div>
-                                    <p className="text-xs text-text-secondary font-mono uppercase">{">"} WAITING_FOR_ORDERS...</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {orders.map(order => (
-                                        <div key={order.id} className="border border-border bg-card hover:border-brand transition-colors p-4 group relative overflow-hidden">
-                                            <div className="absolute top-0 right-0 p-1 opacity-20 group-hover:opacity-100 transition-opacity">
-                                                <span className="text-[10px] uppercase text-brand border border-brand px-1">NEW_REQ</span>
+                            {/* Incoming Orders */}
+                            {!showHistory && (
+                                <>
+                                    {orders.length === 0 ? (
+                                        <div className="border border-border border-dashed p-8 text-center bg-surface/20">
+                                            <div className="inline-block p-3 rounded-full bg-surface mb-2">
+                                                <Clock className="w-6 h-6 text-text-secondary animate-spin-slow" />
                                             </div>
-
-                                            <div className="flex justify-between items-start mb-3">
-                                                <div>
-                                                    <p className="text-lg font-bold font-mono text-white">{formatCurrency(order.amountFiat, order.fiatCurrency)}</p>
-                                                    <p className="text-[10px] text-text-secondary uppercase">VIA {order.paymentMethod}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-brand font-mono text-sm font-bold">
-                                                        +{order.amountUsdc?.toFixed(2)} USDC
-                                                    </p>
-                                                    <p className="text-[10px] text-text-secondary uppercase">EST_RETURN</p>
-                                                </div>
-                                            </div>
-
-                                            {/* QR Preview (Mini) */}
-                                            {order.qrImage && (
-                                                <div className="bg-white p-1 w-fit mb-3 border border-border">
-                                                    <img src={order.qrImage} alt="QR" className="h-12 w-12 object-contain" />
-                                                </div>
-                                            )}
-
-                                            <button
-                                                onClick={() => handleAcceptOrder(order)}
-                                                disabled={isSubmitting}
-                                                className="w-full py-2 bg-brand/10 border border-brand/50 text-brand font-bold text-xs uppercase hover:bg-brand hover:text-black transition-all"
-                                            >
-                                                {isSubmitting ? "PROCESSING..." : "[ ACCEPT_CONTRACT ]"}
-                                            </button>
+                                            <p className="text-xs text-text-secondary font-mono">Waiting for orders...</p>
                                         </div>
-                                    ))}
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {orders.map(order => (
+                                                <div key={order.id} className="border border-border bg-card hover:border-brand transition-colors p-4 group relative overflow-hidden">
+                                                    <div className="absolute top-2 right-2 opacity-20 group-hover:opacity-100 transition-opacity">
+                                                        <span className="text-[10px] uppercase text-brand border border-brand px-1">NEW</span>
+                                                    </div>
+
+                                                    <div className="flex justify-between items-start mb-3 pr-8">
+                                                        <div className="min-w-0">
+                                                            <p className="text-lg font-bold font-mono text-white">{formatCurrency(order.amountFiat, order.fiatCurrency)}</p>
+                                                            <p className="text-[10px] text-text-secondary uppercase">via {order.paymentMethod}</p>
+                                                        </div>
+                                                        <div className="text-right shrink-0">
+                                                            <p className="text-brand font-mono text-sm font-bold">
+                                                                +{order.amountUsdc?.toFixed(2)} USDC
+                                                            </p>
+                                                            <p className="text-[10px] text-text-secondary uppercase">You earn</p>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* QR Preview (Mini) */}
+                                                    {order.qrImage && (
+                                                        <div className="bg-white p-1 w-fit mb-3 border border-border">
+                                                            <img src={order.qrImage} alt="QR" className="h-12 w-12 object-contain" />
+                                                        </div>
+                                                    )}
+
+                                                    <button
+                                                        onClick={() => handleAcceptOrder(order)}
+                                                        disabled={isSubmitting || order.amountUsdc > availableStake}
+                                                        className="w-full py-2 bg-brand/10 border border-brand/50 text-brand font-bold text-xs uppercase hover:bg-brand hover:text-black transition-all disabled:opacity-50"
+                                                    >
+                                                        {isSubmitting ? "Processing..." : order.amountUsdc > availableStake ? `Insufficient stake (need $${order.amountUsdc})` : "Accept Order"}
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {/* Order History */}
+                            {showHistory && (
+                                <div className="space-y-3">
+                                    {myOrders.filter(o => ['completed', 'settled', 'disputed'].includes(o.status)).length === 0 ? (
+                                        <div className="border border-border border-dashed p-8 text-center bg-surface/20">
+                                            <p className="text-xs text-text-secondary font-mono">No completed orders yet</p>
+                                        </div>
+                                    ) : (
+                                        myOrders
+                                            .filter(o => ['completed', 'settled', 'disputed'].includes(o.status))
+                                            .map(order => (
+                                                <div key={order.id} className="border border-border bg-card p-4">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <div>
+                                                            <p className="text-sm font-bold font-mono text-white">{formatCurrency(order.amountFiat, order.fiatCurrency)}</p>
+                                                            <p className="text-[10px] text-text-secondary uppercase">
+                                                                {order.id.slice(0, 12)} | {new Date(order.completedAt || order.createdAt).toLocaleDateString()}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-success font-mono text-sm font-bold">
+                                                                +{order.amountUsdc?.toFixed(2)} USDC
+                                                            </p>
+                                                            <span className={`text-[10px] uppercase px-1 border ${
+                                                                order.status === 'completed' || order.status === 'settled' 
+                                                                    ? 'text-success border-success' 
+                                                                    : 'text-error border-error'
+                                                            }`}>
+                                                                {order.status === 'completed' || order.status === 'settled' ? 'SETTLED' : 'DISPUTED'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* Stake lock status */}
+                                                    {order.stakeLockExpiresAt && order.stakeLockExpiresAt > Date.now() && (
+                                                        <div className="mt-2 text-[10px] text-warning uppercase font-mono flex items-center gap-1">
+                                                            <Clock className="w-3 h-3" />
+                                                            STAKE_LOCKED: {Math.ceil((order.stakeLockExpiresAt - Date.now()) / (1000 * 60 * 60))}h remaining
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))
+                                    )}
                                 </div>
                             )}
                         </>
@@ -533,12 +629,16 @@ export default function SolverPage() {
 
                     <div className="border border-border bg-card p-1 mb-6">
                         {!paymentProof ? (
-                            <div
-                                onClick={() => fileInputRef.current?.click()}
-                                className="aspect-video w-full bg-surface/50 border-2 border-dashed border-border hover:border-brand flex flex-col items-center justify-center cursor-pointer group transition-colors"
-                            >
-                                <Upload className="w-8 h-8 text-text-secondary mb-2 group-hover:text-brand transition-colors" />
-                                <p className="text-xs text-text-secondary uppercase group-hover:text-brand">CLICK_TO_UPLOAD_EVIDENCE</p>
+                            <div className="aspect-video w-full bg-surface/50 border-2 border-dashed border-border flex flex-col items-center justify-center p-4">
+                                <Upload className="w-10 h-10 text-brand mb-3" />
+                                <p className="text-xs text-text-secondary uppercase mb-2">ATTACH_PAYMENT_SCREENSHOT</p>
+                                <p className="text-[10px] text-text-secondary/60 mb-4 text-center">Upload screenshot showing payment confirmation</p>
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="px-6 py-3 border border-brand text-brand hover:bg-brand hover:text-black transition-colors uppercase text-xs font-bold"
+                                >
+                                    [ SELECT_FILE ]
+                                </button>
                             </div>
                         ) : (
                             <div className="relative">
@@ -588,7 +688,7 @@ export default function SolverPage() {
                 </div>
             )}
 
-            {/* Step: Pending Settlement */}
+            {/* Step: Pending DAO Verification */}
             {step === "pending" && acceptedOrder && (
                 <div className="font-mono text-center pt-8">
                     <div className="w-24 h-24 border-2 border-brand rounded-full flex items-center justify-center mx-auto mb-6 relative">
@@ -596,10 +696,11 @@ export default function SolverPage() {
                         <Clock className="w-10 h-10 text-brand" />
                     </div>
 
-                    <h2 className="text-xl font-bold uppercase text-white mb-2">SETTLEMENT_PENDING</h2>
-                    <p className="text-xs text-text-secondary uppercase mb-6">EST_COMPLETION: {countdown}</p>
+                    <h2 className="text-xl font-bold uppercase text-white mb-2">VALIDATING_PAYMENT</h2>
+                    <p className="text-xs text-text-secondary uppercase mb-2">DAO validators are reviewing your proof</p>
+                    <p className="text-[10px] text-brand/60 uppercase mb-6">3 votes needed for approval</p>
 
-                    <div className="border border-border bg-surface p-4 text-left max-w-sm mx-auto mb-8">
+                    <div className="border border-border bg-surface p-4 text-left max-w-sm mx-auto mb-6">
                         <div className="flex justify-between mb-2 pb-2 border-b border-border border-dashed">
                             <span className="text-xs text-text-secondary">ORDER_ID</span>
                             <span className="text-xs font-mono">{acceptedOrder.id.slice(0, 8)}...</span>
@@ -608,23 +709,26 @@ export default function SolverPage() {
                             <span className="text-xs text-text-secondary">PAID</span>
                             <span className="font-bold">{formatCurrency(acceptedOrder.amountFiat, acceptedOrder.fiatCurrency)}</span>
                         </div>
-                        <div className="flex justify-between">
+                        <div className="flex justify-between mb-2">
                             <span className="text-xs text-text-secondary">PENDING_CREDIT</span>
                             <span className="font-bold text-brand">{acceptedOrder.amountUsdc.toFixed(2)} USDC</span>
                         </div>
+                        <div className="flex justify-between">
+                            <span className="text-xs text-text-secondary">STATUS</span>
+                            <span className="text-xs text-yellow-400 uppercase">VERIFYING</span>
+                        </div>
                     </div>
 
-                    {/* Test Settlement Button (for demo) */}
-                    <button
-                        onClick={handleTestSettle}
-                        disabled={isSubmitting}
-                        className="w-full py-3 border border-dashed border-success/50 text-success font-bold uppercase text-xs hover:bg-success/10 mb-4"
-                    >
-                        {isSubmitting ? "EXECUTING..." : "[ DEV_MODE: FORCE_SETTLE ]"}
-                    </button>
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 max-w-sm mx-auto mb-6 text-left">
+                        <p className="text-[10px] text-yellow-400 uppercase">
+                            {">"} Community validators checking payment proof<br />
+                            {">"} Once 2/3 approve, USDC released instantly<br />
+                            {">"} Auto-approved in 1 hour if no quorum
+                        </p>
+                    </div>
 
                     <p className="text-[10px] text-text-secondary opacity-50">
-                        {">"} AUTOMATED_SCRIPT_RUNNING...<br />
+                        {">"} DAO_VALIDATION_IN_PROGRESS...<br />
                         {">"} DO_NOT_CLOSE_BROWSER
                     </p>
                 </div>

@@ -9,6 +9,7 @@ import { useWallet } from "@/hooks/useWallet"
 import { useUserOrders, Order } from "@/hooks/useOrders"
 import { useFraudProfile } from "@/hooks/useFraudProfile"
 import { useStaking, TIER_CONFIG } from "@/hooks/useStaking"
+import { useUserLimits } from "@/hooks/useUserLimits"
 import { usdcToFiat, formatCurrency } from "@/lib/currency-converter"
 import { useRouter } from "next/navigation"
 import { RiskIndicator, StakeRequirement, OrderBlockedWarning } from "@/components/app/risk-indicator"
@@ -45,6 +46,7 @@ export default function SellPage() {
         getRequiredStake
     } = useFraudProfile(address ?? undefined)
     const { stakeProfile, fetchStakeProfile } = useStaking()
+    const { limitData } = useUserLimits(address || null)
 
     // Fetch stake profile on mount
     useEffect(() => {
@@ -60,12 +62,15 @@ export default function SellPage() {
     const fiatAmount = amount !== "0" ? usdcToFiat(parseFloat(amount), "INR") : 0
     const hasEnoughBalance = parseFloat(amount) <= parseFloat(balanceFormatted)
 
-    // Get current tier limit (must be after fiatAmount is defined)
+    // Get current tier limit
+    // LPs (with stake) use their LP tier limit, regular users use progressive limits
+    const isLP = stakeProfile?.isLP && stakeProfile.baseStake > 0
     const currentTierConfig = TIER_CONFIG.find(t => t.name === (stakeProfile?.tier || 'Starter')) || TIER_CONFIG[0]
-    const orderExceedsTierLimit = fiatAmount > currentTierConfig.orderLimit
+    const maxOrderUsdc = isLP ? currentTierConfig.maxOrder : (limitData?.maxOrder || 150)
+    const orderExceedsTierLimit = parseFloat(amount) > maxOrderUsdc
 
     const handleContinue = async () => {
-        if (amount === "0" || parseFloat(amount) < 10 || !hasEnoughBalance) return
+        if (amount === "0" || parseFloat(amount) <= 0 || !hasEnoughBalance) return
 
         // Check tier limit
         if (orderExceedsTierLimit) {
@@ -242,7 +247,7 @@ export default function SellPage() {
                                 <div>
                                     <p className="text-xs text-warning font-bold uppercase">TIER_LIMIT_EXCEEDED</p>
                                     <p className="text-[10px] text-text-secondary mt-1">
-                                        {">"} Your {stakeProfile?.tier || 'Starter'} tier limit: {formatCurrency(currentTierConfig.orderLimit, 'INR')}<br/>
+                                        {">"}  Your {stakeProfile?.tier || 'Starter'} tier limit: ${maxOrderUsdc} USDC<br/>
                                         {">"} <Link href="/stake" className="text-brand underline">UPGRADE_TIER</Link> to increase limit
                                     </p>
                                 </div>
@@ -258,14 +263,14 @@ export default function SellPage() {
                     {/* Continue Button */}
                     <button
                         onClick={handleContinue}
-                        disabled={amount === "0" || parseFloat(amount) < 10 || !hasEnoughBalance || orderExceedsTierLimit}
+                        disabled={amount === "0" || parseFloat(amount) <= 0 || !hasEnoughBalance || orderExceedsTierLimit}
                         className="w-full mt-6 py-4 bg-brand text-black font-bold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-hover transition-colors font-mono relative overflow-hidden"
                     >
                         <span className="relative z-10">{">"} PROCEED_TO_DETAILS</span>
                         <div className="absolute inset-0 bg-white/20 translate-y-full hover:translate-y-0 transition-transform duration-300" />
                     </button>
                     <p className="text-[10px] text-text-secondary text-center mt-2 uppercase font-mono">
-                        MIN: $10 USDC | MAX: {currentTierConfig.orderLimit === Infinity ? 'UNLIMITED' : formatCurrency(currentTierConfig.orderLimit, 'INR')}
+                        {parseFloat(amount) > 0 && parseFloat(amount) < 10 ? 'SMALL ORDER FEE: $0.125 | ' : ''}MAX: ${maxOrderUsdc} USDC
                     </p>
                 </>
             )}

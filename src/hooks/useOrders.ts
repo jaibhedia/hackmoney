@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 export interface Order {
     id: string
     type: "buy" | "sell"
-    status: "created" | "matched" | "payment_pending" | "payment_sent" | "completed" | "disputed" | "cancelled" | "expired"
+    status: "created" | "matched" | "payment_pending" | "payment_sent" | "completed" | "disputed" | "cancelled" | "expired" | "settled" | "verifying"
     userId: string
     userAddress: string
     amountUsdc: number
@@ -16,12 +16,18 @@ export interface Order {
     fiatCurrency: string
     paymentMethod: string
     paymentDetails: string
+    qrImage?: string           // User's destination QR (base64)
+    lpPaymentProof?: string    // LP's payment screenshot (base64)
     createdAt: number
     expiresAt: number
     matchedAt?: number
     solverId?: string
     solverAddress?: string
+    paymentSentAt?: number     // When LP marked payment sent
+    disputePeriodEndsAt?: number // 24hrs after completion - user can dispute
+    stakeLockExpiresAt?: number  // 24hrs after completion - LP stake unlocks
     completedAt?: number
+    settledAt?: number         // When USDC released to LP (now immediate)
 }
 
 /**

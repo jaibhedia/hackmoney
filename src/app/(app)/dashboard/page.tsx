@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Plus, ArrowDownLeft, Send, History, Wallet, X, Loader2, QrCode, Users, Scale, Shield, User, Receipt, Settings, ChevronRight } from "lucide-react"
+import { Plus, ArrowDownLeft, Send, History, Wallet, X, Loader2, QrCode, Users, Scale, Shield, User, Receipt, ChevronRight } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { WalletConnect } from "@/components/app/wallet-connect"
 import { BottomNav } from "@/components/app/bottom-nav"
@@ -161,11 +161,11 @@ export default function DashboardPage() {
                     >
                         <div className="flex justify-between items-start">
                             <QrCode className="w-5 h-5 text-text-secondary group-hover:text-brand transition-colors" />
-                            <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">CMD_01</span>
+                            <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">USER</span>
                         </div>
                         <div>
-                            <span className="block text-sm font-bold group-hover:text-brand">SCAN_&_PAY</span>
-                            <span className="text-[10px] text-text-secondary lowercase">{">>"} scan_upi_qr</span>
+                            <span className="block text-sm font-bold group-hover:text-brand">SELL INR</span>
+                            <span className="text-[10px] text-text-secondary lowercase">{">>"} get_usdc_for_inr</span>
                         </div>
                     </Link>
 
@@ -175,11 +175,11 @@ export default function DashboardPage() {
                     >
                         <div className="flex justify-between items-start">
                             <Wallet className="w-5 h-5 text-text-secondary group-hover:text-success transition-colors" />
-                            <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">CMD_02</span>
+                            <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">USER</span>
                         </div>
                         <div>
                             <span className="block text-sm font-bold group-hover:text-success">WALLET</span>
-                            <span className="text-[10px] text-text-secondary lowercase">{">>"} deposit_withdraw</span>
+                            <span className="text-[10px] text-text-secondary lowercase">{">>"} manage_funds</span>
                         </div>
                     </Link>
 
@@ -189,11 +189,11 @@ export default function DashboardPage() {
                     >
                         <div className="flex justify-between items-start">
                             <Receipt className="w-5 h-5 text-text-secondary group-hover:text-purple-500 transition-colors" />
-                            <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">CMD_03</span>
+                            <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">USER</span>
                         </div>
                         <div>
-                            <span className="block text-sm font-bold group-hover:text-purple-500">ORDERS</span>
-                            <span className="text-[10px] text-text-secondary lowercase">{">>"} view_history</span>
+                            <span className="block text-sm font-bold group-hover:text-purple-500">MY ORDERS</span>
+                            <span className="text-[10px] text-text-secondary lowercase">{">>"} transaction_history</span>
                         </div>
                     </Link>
 
@@ -208,25 +208,25 @@ export default function DashboardPage() {
                                 <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">LP</span>
                             </div>
                             <div>
-                                <span className="block text-sm font-bold group-hover:text-warning">LP_MODE</span>
-                                <span className="text-[10px] text-text-secondary lowercase">{">>"} provide_liquidity</span>
+                                <span className="block text-sm font-bold group-hover:text-warning">LP TERMINAL</span>
+                                <span className="text-[10px] text-text-secondary lowercase">{">>"} fulfill_orders</span>
                             </div>
                         </Link>
                     )}
 
-                    {/* DAO Access - Only show for Gold+ tier users */}
+                    {/* DAO Validation - Only show for Gold+ tier users */}
                     {stakeProfile && ['Gold', 'Diamond'].includes(stakeProfile.tier) && (
                         <Link
-                            href="/arbitrator"
-                            className="flex flex-col gap-2 p-4 border border-border bg-card hover:border-purple-500 hover:bg-surface-hover transition-all group"
+                            href="/dao"
+                            className="flex flex-col gap-2 p-4 border border-border bg-card hover:border-green-500 hover:bg-surface-hover transition-all group"
                         >
                             <div className="flex justify-between items-start">
-                                <Scale className="w-5 h-5 text-text-secondary group-hover:text-purple-500 transition-colors" />
+                                <Scale className="w-5 h-5 text-text-secondary group-hover:text-green-500 transition-colors" />
                                 <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">DAO</span>
                             </div>
                             <div>
-                                <span className="block text-sm font-bold group-hover:text-purple-500">DAO_VOTING</span>
-                                <span className="text-[10px] text-text-secondary lowercase">{">>"} resolve_disputes</span>
+                                <span className="block text-sm font-bold group-hover:text-green-500">VALIDATE</span>
+                                <span className="text-[10px] text-text-secondary lowercase">{">>"} review_payments</span>
                             </div>
                         </Link>
                     )}
@@ -275,16 +275,6 @@ export default function DashboardPage() {
                         <ChevronRight className="w-4 h-4 text-text-muted" />
                     </Link>
                     
-                    <Link href="/settings" className="flex items-center justify-between p-4 hover:bg-surface-hover transition-colors group">
-                        <div className="flex items-center gap-3">
-                            <Settings className="w-5 h-5 text-gray-500" />
-                            <div>
-                                <span className="block text-sm font-medium text-text-primary group-hover:text-brand">Settings</span>
-                                <span className="text-[10px] text-text-secondary">App preferences</span>
-                            </div>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-text-muted" />
-                    </Link>
                 </div>
             </div>
 

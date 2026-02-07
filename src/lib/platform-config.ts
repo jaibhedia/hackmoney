@@ -44,13 +44,22 @@ export const PLATFORM_CONFIG = {
         },
     },
 
-    // Stake slashing penalties
+    // Stake slashing penalties - STRICT
     slashing: {
-        orderTimeout: 20,              // % of stake
-        fakePaymentProof: 100,         // % of stake
-        disputeLost: 50,               // % of stake
-        paymentReversal: 200,          // % of stake (can exceed 100%)
-        lateRelease: 5,                // % of stake (>30 min)
+        // LP SLASHING - No progressive tiers
+        lp: {
+            disputeLost: 100,          // 100% slash - LP loses ALL locked stake
+            orderAbandoned: 10,        // 10% for ghosting + 24hr offline
+            lateRelease: 5,            // 5% for >30 min delay
+        },
+        // USER PENALTIES - 3 Strike System
+        user: {
+            maxStrikes: 3,
+            strike1Cooldown: 12 * 60 * 60,   // 12 hours
+            strike2Cooldown: 24 * 60 * 60,   // 24 hours
+            strike3Action: 'PERMANENT_BAN' as const,
+            forfeitFundsOnBan: true,         // Escrowed funds go to LP
+        },
     },
 
     // Dispute resolution timelines
@@ -77,9 +86,20 @@ export const PLATFORM_CONFIG = {
         },
     ],
 
+    // Fee configuration
+    fees: {
+        protocolFeeBps: 50,              // 0.5% total fee
+        smallOrderFee: 0.125,            // $0.125 flat for small orders
+        smallOrderThreshold: 10,         // Orders under $10
+        lpRewardShare: 0.5,              // LP gets 50% of fee as bonus
+        feeCollector: process.env.NEXT_PUBLIC_FEE_COLLECTOR || '0x39164E3549006E291b549710c07003CCCe4cfA20',
+    },
+
     // Order limits
     orders: {
-        minAmountUSDC: 10,
+        minAmountUSDC: 0,  // No minimum - any amount allowed
+        smallOrderThreshold: 10,  // Below this, charge small order fee
+        smallOrderFee: 0.125,  // $0.125 fee for orders < $10
         maxAmountUSDC: 10000,
         expiryMinutes: 15,
         merchantMinStake: 500,
